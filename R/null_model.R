@@ -152,7 +152,7 @@ for (i in seq_along(hindcast_seq)) {
 close(pb)
 
 site_params <- paste0("ticksFrom_", site_x, "_paramsFrom_", site_x)
-dir_write <- file.path("Out", site_params, model, experiment)
+dir_write <- file.path("out", site_params, model, experiment)
 if (!dir.exists(dir_write)) {
   dir.create(dir_write, showWarnings = FALSE, recursive = TRUE)
 }
