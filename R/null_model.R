@@ -17,7 +17,7 @@ dir_data <- "Data"
 model <- experiment <- "null"
 
 # set the job number to run each Grid
-job_num <- 1
+job_num <- 3
 
 # first load the target data set
 df_tick_calibration <- read_csv(file.path(dir_top, dir_data, "tick_cleaned"))
