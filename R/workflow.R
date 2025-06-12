@@ -21,7 +21,9 @@ library(readr)
 library(lubridate)
 library(nimble)
 library(parallel)
-source("Functions/run_hindcast_nimble.R")
+
+source("R/data_assimilation.R")
+source("R/function_run_hindcast_nimble.R")
 
 n_slots <- Sys.getenv("NSLOTS") %>% as.numeric()
 use_nmme <- TRUE
@@ -32,7 +34,7 @@ horizon <- 365
 use_mice <- TRUE
 restart <- FALSE
 
-dir_data <- "Data"
+dir_data <- "data"
 dir_tick <- "FinalOut/A_Correct/DormantNymphs/DormantNymph_met_and_mice_nimble_All_Global"
 dir_mice <- "FinalOut"
 dir_nmme <- "C:/Users/John.Foster/Downloads/NMME"
@@ -49,14 +51,13 @@ all.jobs <- expand.grid(
   remove = c(TRUE, FALSE)
 )
 
-# all.jobs <- all.jobs %>%
-#   slice(-c(10,14,18))
-
 job_num <- as.numeric(Sys.getenv("SGE_TASK_ID"))
 
+# for testing locally
 if (is.na(job_num)) {
   job_num <- 9
 }
+
 remove <- all.jobs$remove[job_num]
 params_job <- all.jobs$paramsFrom[job_num]
 ticks_job <- all.jobs$ticksFrom[job_num]
@@ -732,8 +733,6 @@ for (t in seq_along(hindcast_seq_tick)) {
     )
   }
 
-  # source("Functions/run_hindcast_nimble.R")
-  source("Scripts/DA_ticks.R")
   cl <- makeCluster(n_slots)
   out_nchains <- run_hindcast_nimble(
     cl = cl,
