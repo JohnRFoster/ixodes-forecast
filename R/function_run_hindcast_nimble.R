@@ -102,7 +102,7 @@ run_hindcast_nimble <- function(
         for (n in seq_len(nrow(data$y.ind))) {
           for (t in seq_len(constants$horizon)) {
             if (data$y.ind[n, j, t] == 0) {
-              node <- paste0('y.censored[', n, ", ", j, ", ", t, "]")
+              node <- paste0("y.censored[", n, ", ", j, ", ", t, "]")
               mcmc_conf$addMonitors(node)
               mcmc_conf$addSampler(target = node, type = "RW")
             }
@@ -112,10 +112,10 @@ run_hindcast_nimble <- function(
     } else {
       if (mu_f_missing) {
         message("--- Remove samplers for observed weather nodes ---")
-        for (i in 1:nrow(data$muf)) {
-          for (j in 1:ncol(data$muf)) {
+        for (i in seq_len(nrow(data$muf))) {
+          for (j in seq_len(ncol(data$muf))) {
             if (!is.na(data$muf[i, j])) {
-              node <- paste0('muf[', i, ', ', j, ']')
+              node <- paste0("muf[", i, ", ", j, "]")
               mcmc_conf$removeSamplers(node)
             }
           }
@@ -123,31 +123,22 @@ run_hindcast_nimble <- function(
       }
     }
 
-    for (i in 1:nrow(data$y)) {
-      for (j in 1:ncol(data$y)) {
+    for (i in seq_len(nrow(data$y))) {
+      for (j in seq_len(ncol(data$y))) {
         if (j > 1) {
-          node <- paste0('px[', i, ', ', j, ']')
+          node <- paste0("px[", i, ", ", j, "]")
           mcmc_conf$addSampler(node, "RW")
         }
-
-        # if(!is.na(data$y[i,j])){
-        #   node <- paste0('y[', i, ', ', j, ']')
-        #   mcmc_conf$removeSamplers(node)
-        #   mcmc_conf$addSampler(target = node, type = "slice")
-        # }
       }
     }
 
-    # mcmc_conf$removeSamplers("repro.mu")
-    # mcmc_conf$addSampler(target = "repro.mu", type = "ess")
+    r_mcmc <- buildMCMC(mcmc_conf)
+    c_mcmc <- compileNimble(r_mcmc)
+    c_mcmc$run(niter = n_iter, nburnin = 0.3 * n_iter)
 
-    Rmcmc <- buildMCMC(mcmc_conf)
-    Cmcmc <- compileNimble(Rmcmc)
-    Cmcmc$run(niter = n_iter, nburnin = 0.3 * n_iter)
-
-    return(as.mcmc(as.matrix(Cmcmc$mvSamples)))
+    return(as.mcmc(as.matrix(c_mcmc$mvSamples)))
   })
 
-  out.mcmc <- as.mcmc.list(out)
-  return(out.mcmc)
+  message("MCMC run complete.")
+  as.mcmc.list(out)
 }
