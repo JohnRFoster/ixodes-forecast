@@ -10,7 +10,6 @@
 ## 8 - analysis step
 ## 9 - save
 
-
 # =========================================== #
 #       1 - setup
 # =========================================== #
@@ -24,21 +23,21 @@ library(nimble)
 library(parallel)
 source("Functions/run_hindcast_nimble.R")
 
-n.slots <- Sys.getenv("NSLOTS") %>% as.numeric()
-use.nmme <- TRUE
+n_slots <- Sys.getenv("NSLOTS") %>% as.numeric()
+use_nmme <- TRUE
 production <- TRUE
-n.iter <- 20000
-Nmc <- 2000
+n_iter <- 20000
+nmc <- 2000
 horizon <- 365
-use.mice <- TRUE
+use_mice <- TRUE
 restart <- FALSE
 
-dir.data <- "Data"
-dir.tick <- "FinalOut/A_Correct/DormantNymphs/DormantNymph_met_and_mice_nimble_All_Global"
-dir.mice <- "FinalOut"
-dir.nmme <- "C:/Users/John.Foster/Downloads/NMME"
-dir.analysis <- file.path("Analysis/dormantStages/nimbleModels")
-dir.save <- file.path(dir.mice, "Chapter2")
+dir_data <- "Data"
+dir_tick <- "FinalOut/A_Correct/DormantNymphs/DormantNymph_met_and_mice_nimble_All_Global"
+dir_mice <- "FinalOut"
+dir_nmme <- "C:/Users/John.Foster/Downloads/NMME"
+dir_analysis <- file.path("Analysis/dormantStages/nimbleModels")
+dir_save <- file.path(dir_mice, "Chapter2")
 
 # field sites
 sites <- c("Green", "Henry", "Tea")
@@ -53,40 +52,52 @@ all.jobs <- expand.grid(
 # all.jobs <- all.jobs %>%
 #   slice(-c(10,14,18))
 
-job.num <- as.numeric(Sys.getenv("SGE_TASK_ID"))
+job_num <- as.numeric(Sys.getenv("SGE_TASK_ID"))
 
-if (is.na(job.num)) job.num <- 9
-remove <- all.jobs$remove[job.num]
-paramsJob <- all.jobs$paramsFrom[job.num]
-ticksJob <- all.jobs$ticksFrom[job.num]
-miceJob <- ticksJob
-modelJob <- if_else(use.mice, "WithWeatherAndMiceGlobal", "Weather")
-uaFrom <- if_else(use.mice, "mice_ic_parameter_process", "ic_parameter_process")
-calibration.mice <- paste(miceJob, "Control")
-calibration.ticks <- paste(ticksJob, "Control")
+if (is.na(job_num)) {
+  job_num <- 9
+}
+remove <- all.jobs$remove[job_num]
+params_job <- all.jobs$paramsFrom[job_num]
+ticks_job <- all.jobs$ticksFrom[job_num]
+mice_job <- ticks_job
+model_job <- if_else(use_mice, "WithWeatherAndMiceGlobal", "Weather")
+ua_from <- if_else(
+  use_mice,
+  "mice_ic_parameter_process",
+  "ic_parameter_process"
+)
+calibration_mice <- paste(mice_job, "Control")
+calibration_ticks <- paste(ticks_job, "Control")
 experiment <- "base"
-if (use.mice) experiment <- paste(experiment, "mna", sep = "_")
-if (remove) experiment <- paste(experiment, "remove", sep = "_")
-if (use.nmme) experiment <- paste(experiment, "nmme", sep = "_")
+if (use_mice) {
+  experiment <- paste(experiment, "mna", sep = "_")
+}
+if (remove) {
+  experiment <- paste(experiment, "remove", sep = "_")
+}
+if (use_nmme) {
+  experiment <- paste(experiment, "nmme", sep = "_")
+}
 
 # =========================================== #
 #       1 - state data intake
 # =========================================== #
 
-df.tick <- read_csv(file.path(dir.data, "Ticks2006_2021.csv"))
-df.mice <- read_csv(file.path(dir.data, "Mice2006_2021.csv")) # currently tick data only through 2020
+df_tick <- read_csv(file.path(dir_data, "Ticks2006_2021.csv"))
+df_mice <- read_csv(file.path(dir_data, "Mice2006_2021.csv")) # currently tick data only through 2020
 
-data.tick <- df.tick %>% filter(Grid == calibration.ticks)
-data.mice <- df.mice %>% filter(Grid == calibration.mice)
+data_tick <- df_tick %>% filter(Grid == calibration_ticks)
+data_mice <- df_mice %>% filter(Grid == calibration_mice)
 
-dates.tick <- data.tick$Date
-dates.mice <- data.mice$Date
+dates_tick <- data_tick$Date
+dates_mice <- data_mice$Date
 
-start.date <- if_else(use.mice, min(dates.mice), min(dates.tick) - 31) # start one month before first tick observation
-end.date <- max(dates.tick) # end at last tick observation
-hindcast.period <- seq.Date(start.date, end.date, by = 1)
+start_date <- if_else(use_mice, min(dates_mice), min(dates_tick) - 31) # start one month before first tick observation
+end_date <- max(dates_tick) # end at last tick observation
+hindcast_period <- seq.Date(start_date, end_date, by = 1)
 
-# hindcast.period represents every single day in the time series
+# hindcast_period represents every single day in the time series
 # for a majority of the hindcasts, we only need to run the simulation
 # after each observation because the weather is treated as known, then
 # run hindcasts for every day once we reach the GEFS period (2020+)
@@ -101,16 +112,17 @@ source("Functions/scale_met_forecast.R")
 hist.means <- scale_met_forecast()
 
 # get the observed data from Cary and center to historical mean
-cary.met <- read_csv(file.path(dir.data, "Cary_Met_Data_Daily.csv")) %>% suppressWarnings()
-met.pre.2021 <- cary.met %>%
-  slice(-c((nrow(cary.met) - 364):nrow(cary.met))) %>%
+cary_met <- read_csv(file.path(dir_data, "Cary_Met_Data_Daily.csv")) %>%
+  suppressWarnings()
+met_pre_2021 <- cary_met %>%
+  slice(-c((nrow(cary_met) - 364):nrow(cary_met))) %>%
   mutate(Date = mdy(DATE)) %>%
   filter(Date >= "1995-01-01")
-met.2021 <- cary.met %>%
-  slice((nrow(cary.met) - 364):nrow(cary.met)) %>%
+met_2021 <- cary_met %>%
+  slice((nrow(cary_met) - 364):nrow(cary_met)) %>%
   mutate(Date = ymd(DATE))
 
-weather.corrected <- bind_rows(met.pre.2021, met.2021) %>%
+weather_corrected <- bind_rows(met_pre_2021, met_2021) %>%
   select(Date, MAX_TEMP, MAX_RH, MIN_RH, TOT_PREC) %>%
   arrange(Date) %>%
   mutate(year = year(Date)) %>%
@@ -118,13 +130,15 @@ weather.corrected <- bind_rows(met.pre.2021, met.2021) %>%
   mutate(
     gd = if_else(MAX_TEMP > 10, MAX_TEMP - 10, 0),
     cgdd = cumsum(gd),
-    MAX_TEMP = (MAX_TEMP - hist.means$means["MAX_TEMP"]) / hist.means$sds["MAX_TEMP"],
+    MAX_TEMP = (MAX_TEMP - hist.means$means["MAX_TEMP"]) /
+      hist.means$sds["MAX_TEMP"],
     MAX_RH = (MAX_RH - hist.means$means["MAX_RH"]) / hist.means$sds["MAX_RH"],
     MIN_RH = (MIN_RH - hist.means$means["MIN_RH"]) / hist.means$sds["MIN_RH"],
-    TOT_PREC = (TOT_PREC - hist.means$means["TOT_PREC"]) / hist.means$sds["TOT_PREC"]
+    TOT_PREC = (TOT_PREC - hist.means$means["TOT_PREC"]) /
+      hist.means$sds["TOT_PREC"]
   )
 
-mu.precip.year <- cary.met %>%
+mu_precip_year <- cary_met %>%
   mutate(Date = mdy(DATE)) %>%
   filter(
     Date <= "2005-12-31",
@@ -138,18 +152,18 @@ mu.precip.year <- cary.met %>%
   mean()
 
 # get NOAA NMME forecast dates
-nmme.files <- list.files(file.path(dir.nmme))
-dates.nmme <- ymd(nmme.files)
+nmme_files <- list.files(file.path(dir_nmme))
+dates_nmme <- ymd(nmme_files)
 
 # which observations fall within the larval phenological window and are not peak nymph for that year?
 if (remove) {
-  data.tick <- data.tick %>%
+  data_tick <- data_tick %>%
     mutate(Larvae = NA)
 }
 
-if (use.mice) {
+if (use_mice) {
   source("Functions/mna_hindcast.R")
-  mna <- mna_hindcast(calibration.mice) %>%
+  mna <- mna_hindcast(calibration_mice) %>%
     suppressMessages()
 }
 
@@ -157,17 +171,17 @@ if (use.mice) {
 #       get initial conditions
 # =========================================== #
 
-df.latent <- read_csv("Analysis/dormantNymphTimeSeries.csv")
-data.latent <- df.latent %>%
+df_latent <- read_csv("Analysis/dormantNymphTimeSeries.csv")
+data_latent <- df_latent %>%
   mutate(model = gsub("DormantNymph", "", model)) %>%
   filter(
-    model == modelJob,
+    model == model_job,
     type == "latent",
     statistic == "conf_50",
-    ticksFrom == as.character(ticksJob),
-    paramsFrom == as.character(paramsJob),
-    ua == uaFrom,
-    month(DATE) == month(start.date)
+    ticksFrom == as.character(ticks_job),
+    paramsFrom == as.character(params_job),
+    ua == ua_from,
+    month(DATE) == month(start_date)
   ) %>%
   group_by(lifeStage) %>%
   summarise(
@@ -178,16 +192,16 @@ data.latent <- df.latent %>%
 
 IC <- tibble(
   mu = c(
-    pull(data.latent, mu_larvae),
-    pull(data.latent, mu_dormant),
-    pull(data.latent, mu_nymphs),
-    pull(data.latent, mu_adults)
+    pull(data_latent, mu_larvae),
+    pull(data_latent, mu_dormant),
+    pull(data_latent, mu_nymphs),
+    pull(data_latent, mu_adults)
   ),
   prec = c(
-    pull(data.latent, prec_larvae),
-    pull(data.latent, prec_dormant),
-    pull(data.latent, prec_nymphs),
-    pull(data.latent, prec_adults)
+    pull(data_latent, prec_larvae),
+    pull(data_latent, prec_dormant),
+    pull(data_latent, prec_nymphs),
+    pull(data_latent, prec_adults)
   )
 ) %>%
   as.matrix()
@@ -196,12 +210,11 @@ IC <- tibble(
 #       get informative priors
 # =========================================== #
 
-
-df.params <- read_csv("Analysis/dormantNymphParams.csv")
-params.stats <- df.params %>%
+df_params <- read_csv("Analysis/dormantNymphParams.csv")
+params_stats <- df_params %>%
   filter(
-    model == modelJob,
-    site == as.character(paramsJob)
+    model == model_job,
+    site == as.character(params_job)
   ) %>%
   select(parameter, value) %>%
   group_by(parameter) %>%
@@ -212,28 +225,28 @@ params.stats <- df.params %>%
 
 get_prior <- function(name) {
   pr <- numeric(2)
-  xx <- params.stats %>%
+  xx <- params_stats %>%
     filter(parameter == name)
   pr[1] <- xx %>% pull(mu)
   pr[2] <- xx %>% pull(tau)
   pr
 }
 
-phi.l <- get_prior("phi.l.mu")
-phi.n <- get_prior("phi.n.mu")
-phi.a <- get_prior("phi.a.mu")
-theta.l2n <- get_prior("theta.ln")
-theta.n2a <- get_prior("theta.na")
-repro <- get_prior("repro.mu")
-repro.mu <- repro[1]
+phi_l <- get_prior("phi_l.mu")
+phi_n <- get_prior("phi_n.mu")
+phi_a <- get_prior("phi_a.mu")
+theta_l2n <- get_prior("theta.ln")
+theta_n2a <- get_prior("theta.na")
+repro <- get_prior("repro_mu")
+repro_mu <- repro[1]
 
-n.beta <- params.stats %>%
+n_beta <- params_stats %>%
   filter(grepl("beta", parameter)) %>%
   nrow()
 
-pr.beta <- matrix(NA, n.beta, 2)
-for (i in seq_len(n.beta)) {
-  pr.beta[i, ] <- get_prior(paste0("beta[", i, "]"))
+pr_beta <- matrix(NA, n_beta, 2)
+for (i in seq_len(n_beta)) {
+  pr_beta[i, ] <- get_prior(paste0("beta[", i, "]"))
 }
 
 # function to approximate moment the inverse gamma
@@ -242,14 +255,14 @@ inv_gamma_mm <- function(x) {
   v <- var(x)
   alpha <- (mu^2 / v) + 2
   beta <- mu * ((mu^2 / v) + 1)
-  return(c("alpha" = alpha, "beta" = beta))
+  c("alpha" = alpha, "beta" = beta)
 }
 
 # get invgamma parameters
-pr.sig <- df.params %>%
+pr_sig <- df_params %>%
   filter(
-    model == modelJob,
-    site == paramsJob,
+    model == model_job,
+    site == params_job,
     grepl("sig", parameter)
   ) %>%
   select(parameter, value) %>%
@@ -266,68 +279,75 @@ pr.sig <- df.params %>%
 # need to do the analysis from last observation to current observation
 # need two y's
 
-obs.only.tick <- dates.tick[dates.tick <= first(dates.nmme)]
-obs.only.mice <- dates.mice[dates.mice <= first(dates.nmme)]
-nmme.seq <- seq.Date(first(dates.nmme), last(dates.nmme), by = 1)
-
-hindcast.seq.tick <- sort(c(start.date, dates.tick, end.date))
-hindcast.seq.mice <- sort(c(start.date, dates.mice, end.date))
-
-if (use.nmme) {
-  hindcast.seq.tick <- hindcast.seq.tick[hindcast.seq.tick >= first(dates.nmme)]
-  hindcast.seq.mice <- hindcast.seq.mice[hindcast.seq.mice >= first(dates.nmme)]
-}
+hindcast_seq_tick <- sort(c(start_date, dates_tick, end_date))
 
 if (!production) {
-  hindcast.seq.tick <- hindcast.seq.tick[1:10]
+  hindcast_seq_tick <- hindcast_seq_tick[1:10]
 }
 
-if (use.mice) {
-  hindcast.seq.tick <- hindcast.seq.tick[hindcast.seq.tick < last(mna$time)]
+if (use_mice) {
+  hindcast_seq_tick <- hindcast_seq_tick[hindcast_seq_tick < last(mna$time)]
 }
-
-
-#
 
 # iterate ======================================================================================
-# hindcast.seq.tick <- hindcast.seq.tick[hindcast.seq.tick > "2019-09-05"]
-for (t in seq_along(hindcast.seq.tick)) {
+# hindcast_seq_tick <- hindcast_seq_tick[hindcast_seq_tick > "2019-09-05"]
+for (t in seq_along(hindcast_seq_tick)) {
   # for(t in 1:4){
-  fx.start.date <- hindcast.seq.tick[t]
+  fx_start_date <- hindcast_seq_tick[t]
   message("---------------------------------------------------")
-  mm <- paste0(fx.start.date, " (", round(t / length(hindcast.seq.tick) * 100, 2), "%)")
+  mm <- paste0(
+    fx_start_date,
+    " (",
+    round(t / length(hindcast_seq_tick) * 100, 2),
+    "%)"
+  )
   message("\t", mm, "\n")
 
   # initialize nimble lists
   constants <- data <- list()
 
-  if (t == 1 & !use.nmme) {
-    fx.sequence <- seq.Date(fx.start.date, by = 1, length.out = horizon)
-    # n.days <- horizon
+  if (t == 1 && !use_nmme) {
+    fx_sequence <- seq.Date(fx_start_date, by = 1, length.out = horizon)
+    # n_days <- horizon
     y <- matrix(NA, 4, horizon)
   } else {
     # read last forecast parameters and states
     if (t == 1) {
-      site.params <- paste0("ticksFrom_", ticksJob, "_paramsFrom_", paramsJob)
+      site_params <- paste0("ticksFrom_", ticks_job, "_paramsFrom_", params_job)
       exp.read <- gsub("_nmme", "", experiment) # use last forecast from related experiment
-      dir.read <- file.path(dir.save, site.params, modelJob, exp.read)
-      fx.files <- list.files(dir.read) %>% ymd()
-      fx.read <- fx.files[max(which(fx.files <= fx.start.date))]
+      dir_read <- file.path(dir_save, site_params, model_job, exp.read)
+      fx_files <- list.files(dir_read) %>% ymd()
+      fx_read <- fx_files[max(which(fx_files <= fx_start_date))]
 
-      last.fx <- read_csv(file.path(dir.read, as.character(fx.read), "tickSamples.csv")) %>%
+      last_fx <- read_csv(file.path(
+        dir_read,
+        as.character(fx_read),
+        "tickSamples.csv"
+      )) %>%
         suppressMessages()
-      last.params <- read_csv(file.path(dir.read, as.character(fx.read), "parameterSamples.csv")) %>%
+      last_params <- read_csv(file.path(
+        dir_read,
+        as.character(fx_read),
+        "parameterSamples.csv"
+      )) %>%
         suppressMessages()
-    } else { # can just read from the last fx (t-1)
-      dir.read <- file.path(dir.save, site.params, modelJob, exp, as.character(hindcast.seq.tick[t - 1]))
-      last.params <- read_csv(file.path(dir.read, "parameterSamples.csv")) %>%
+    } else {
+      # can just read from the last fx (t-1)
+      dir_read <- file.path(
+        dir_save,
+        site_params,
+        model_job,
+        exp,
+        as.character(hindcast_seq_tick[t - 1])
+      )
+      last_params <- read_csv(file.path(dir_read, "parameterSamples.csv")) %>%
         suppressMessages()
-      last.fx <- read_csv(file.path(dir.read, "tickSamples.csv")) %>%
+      last_fx <- read_csv(file.path(dir_read, "tickSamples.csv")) %>%
         suppressMessages()
     }
 
     # get parameter posterior summary
-    params.stats <- last.params %>%
+    params_stats <- last_params %>%
       pivot_longer(cols = -c(site, paramsFrom), names_to = "parameter") %>%
       select(parameter, value) %>%
       group_by(parameter) %>%
@@ -336,20 +356,20 @@ for (t in seq_along(hindcast.seq.tick)) {
         tau = 1 / var(value)
       )
 
-    phi.l <- get_prior("phi.l.mu")
-    phi.n <- get_prior("phi.n.mu")
-    phi.a <- get_prior("phi.a.mu")
-    theta.l2n <- get_prior("theta.ln")
-    theta.n2a <- get_prior("theta.na")
-    # repro <- get_prior("repro.mu")
+    phi_l <- get_prior("phi_l.mu")
+    phi_n <- get_prior("phi_n.mu")
+    phi_a <- get_prior("phi_a.mu")
+    theta_l2n <- get_prior("theta.ln")
+    theta_n2a <- get_prior("theta.na")
+    # repro <- get_prior("repro_mu")
 
-    pr.beta <- matrix(NA, n.beta, 2)
-    for (i in seq_len(n.beta)) {
-      pr.beta[i, ] <- get_prior(paste0("beta[", i, "]"))
+    pr_beta <- matrix(NA, n_beta, 2)
+    for (i in seq_len(n_beta)) {
+      pr_beta[i, ] <- get_prior(paste0("beta[", i, "]"))
     }
 
     # get invgamma parameters
-    pr.sig <- last.params %>%
+    pr_sig <- last_params %>%
       pivot_longer(cols = -c(site, paramsFrom), names_to = "parameter") %>%
       filter(grepl("sig", parameter)) %>%
       select(parameter, value) %>%
@@ -359,24 +379,24 @@ for (t in seq_along(hindcast.seq.tick)) {
         beta = inv_gamma_mm(value)[2]
       )
 
-    tick.stats <- last.fx %>%
+    ticks_stats <- last_fx %>%
       group_by(lifeStage, time) %>%
       summarise(
         mu = mean(value),
         tau = 1 / var(value)
       )
 
-    obs.index <- which(dates.tick == fx.start.date)
+    obs_index <- which(dates_tick == fx_start_date)
 
-    obs <- data.tick %>%
-      filter(Date %in% dates.tick[obs.index])
+    obs <- data_tick %>%
+      filter(Date %in% dates_tick[obs_index])
 
     y <- matrix(NA, 4, horizon)
     y[1, 1] <- obs %>% pull(Larvae)
     y[3, 1] <- obs %>% pull(Nymphs)
     y[4, 1] <- obs %>% pull(Adults)
 
-    fx.mu <- tick.stats %>%
+    fx_mu <- ticks_stats %>%
       select(-tau) %>%
       arrange(time) %>%
       pivot_wider(
@@ -384,7 +404,7 @@ for (t in seq_along(hindcast.seq.tick)) {
         values_from = mu
       )
 
-    fx.tau <- tick.stats %>%
+    fx_tau <- ticks_stats %>%
       select(-mu) %>%
       arrange(time) %>%
       pivot_wider(
@@ -393,76 +413,76 @@ for (t in seq_along(hindcast.seq.tick)) {
       )
 
     IC <- matrix(NA, 4, 2)
-    IC[1, 1] <- fx.mu %>%
+    IC[1, 1] <- fx_mu %>%
       filter(lifeStage == "larvae") %>%
-      pull(as.character(fx.start.date))
-    IC[1, 2] <- fx.tau %>%
+      pull(as.character(fx_start_date))
+    IC[1, 2] <- fx_tau %>%
       filter(lifeStage == "larvae") %>%
-      pull(as.character(fx.start.date))
-    IC[2, 1] <- fx.mu %>%
+      pull(as.character(fx_start_date))
+    IC[2, 1] <- fx_mu %>%
       filter(lifeStage == "dormant") %>%
-      pull(as.character(fx.start.date))
-    IC[2, 2] <- fx.tau %>%
+      pull(as.character(fx_start_date))
+    IC[2, 2] <- fx_tau %>%
       filter(lifeStage == "dormant") %>%
-      pull(as.character(fx.start.date))
-    IC[3, 1] <- fx.mu %>%
+      pull(as.character(fx_start_date))
+    IC[3, 1] <- fx_mu %>%
       filter(lifeStage == "nymphs") %>%
-      pull(as.character(fx.start.date))
-    IC[3, 2] <- fx.tau %>%
+      pull(as.character(fx_start_date))
+    IC[3, 2] <- fx_tau %>%
       filter(lifeStage == "nymphs") %>%
-      pull(as.character(fx.start.date))
-    IC[4, 1] <- fx.mu %>%
+      pull(as.character(fx_start_date))
+    IC[4, 1] <- fx_mu %>%
       filter(lifeStage == "adults") %>%
-      pull(as.character(fx.start.date))
-    IC[4, 2] <- fx.tau %>%
+      pull(as.character(fx_start_date))
+    IC[4, 2] <- fx_tau %>%
       filter(lifeStage == "adults") %>%
-      pull(as.character(fx.start.date))
+      pull(as.character(fx_start_date))
 
-    fx.sequence <- seq.Date(fx.start.date, by = 1, length.out = horizon)
-    n.days <- length(fx.sequence)
+    fx_sequence <- seq.Date(fx_start_date, by = 1, length.out = horizon)
+    n_days <- length(fx_sequence)
   }
 
-  nmme.cens <- FALSE
-  if (use.nmme) {
-    nmme.cens <- TRUE
-    muf.missing <- FALSE
-    nmme2get <- floor_date(fx.start.date, unit = "month")
-    nmme.name <- gsub("-", "", nmme2get)
+  nmme_cens <- FALSE
+  if (use_nmme) {
+    nmme_cens <- TRUE
+    muf_missing <- FALSE
+    nmme2get <- floor_date(fx_start_date, unit = "month")
+    nmme_name <- gsub("-", "", nmme2get)
 
     # check if nmme file exists (some file don't)
-    if (!nmme.name %in% nmme.files) {
-      nmme2get <- floor_date(fx.start.date - 30, unit = "month")
-      nmme.name <- gsub("-", "", nmme2get)
+    if (!nmme_name %in% nmme_files) {
+      nmme2get <- floor_date(fx_start_date - 30, unit = "month")
+      nmme_name <- gsub("-", "", nmme2get)
     }
 
-    df.nmme <-
+    df_nmme <-
       read_csv(file.path(
         # dir.top,
-        # dir.data,
-        dir.nmme,
-        nmme.name,
+        # dir_data,
+        dir_nmme,
+        nmme_name,
         "CARY",
-        paste0("NOAANMME_", nmme.name, ".csv")
+        paste0("NOAANMME_", nmme_name, ".csv")
       )) %>%
       suppressMessages()
 
-    horizon <- as.numeric(max(unique(df.nmme$time)) - fx.start.date)
-    fx.sequence <- seq.Date(fx.start.date, by = 1, length.out = horizon)
+    horizon <- as.numeric(max(unique(df_nmme$time)) - fx_start_date)
+    fx_sequence <- seq.Date(fx_start_date, by = 1, length.out = horizon)
 
     y <- matrix(NA, 4, horizon)
     y[1, 1] <- obs %>% pull(Larvae)
     y[3, 1] <- obs %>% pull(Nymphs)
     y[4, 1] <- obs %>% pull(Adults)
 
-    target.nmme <- df.nmme %>%
+    target_nmme <- df_nmme %>%
       select(-tmin) %>%
-      filter(time %in% fx.sequence) %>%
+      filter(time %in% fx_sequence) %>%
       mutate(
         rhmin = rhmin * 100,
         rhmax = rhmax * 100
       )
 
-    nmme.means <- target.nmme %>%
+    nmme_means <- target_nmme %>%
       pivot_longer(
         cols = c(tmax, precipitation, rhmin, rhmax),
         names_to = "variable"
@@ -480,31 +500,31 @@ for (t in seq_along(hindcast.seq.tick)) {
       ) %>%
       ungroup()
 
-    precip.year <- target.nmme %>%
+    precip_year <- target_nmme %>%
       select(time, ensemble, precipitation) %>%
       group_by(ensemble) %>%
       summarise(tot.prec = sum(precipitation)) %>%
       mutate(
-        yearly.bias = mu.precip.year - tot.prec,
+        yearly.bias = mu_precip_year - tot.prec,
         day.add = yearly.bias / 365
       ) %>%
       ungroup()
 
-    ens.vec <- target.nmme$ensemble %>% unique()
-    nmme.correct <- tibble()
-    for (i in ens.vec) {
-      psub <- target.nmme %>%
+    ens_vec <- target_nmme$ensemble %>% unique()
+    nmme_correct <- tibble()
+    for (i in ens_vec) {
+      psub <- target_nmme %>%
         filter(ensemble == i) %>%
         mutate(
-          precipitation = precipitation + precip.year$day.add[i],
-          tmax = tmax + nmme.means$bias.tmax[i],
-          rhmax = rhmax + nmme.means$bias.rhmax[i],
-          rhmin = rhmin + nmme.means$bias.rhmin[i]
+          precipitation = precipitation + precip_year$day.add[i],
+          tmax = tmax + nmme_means$bias.tmax[i],
+          rhmax = rhmax + nmme_means$bias.rhmax[i],
+          rhmin = rhmin + nmme_means$bias.rhmin[i]
         )
-      nmme.correct <- bind_rows(nmme.correct, psub)
+      nmme_correct <- bind_rows(nmme_correct, psub)
     }
 
-    # nmme.correct %>%
+    # nmme_correct %>%
     #   pivot_longer(cols = c(tmax, precipitation, rhmin, rhmax),
     #                names_to = "variable") %>%
     #   mutate(ensemble = as.character(ensemble)) %>%
@@ -516,59 +536,77 @@ for (t in seq_along(hindcast.seq.tick)) {
     #   theme_bw()
 
     # scale to historical period
-    nmme.scaled <- nmme.correct %>%
-      filter(time %in% fx.sequence) %>%
+    nmme_scaled <- nmme_correct %>%
+      filter(time %in% fx_sequence) %>%
       select(time, ensemble, tmax, rhmax, rhmin, precipitation) %>%
       mutate(
-        tmax = (tmax - hist.means$means["MAX_TEMP"]) / hist.means$sds["MAX_TEMP"],
+        tmax = (tmax - hist.means$means["MAX_TEMP"]) /
+          hist.means$sds["MAX_TEMP"],
         rhmax = (rhmax - hist.means$means["MAX_RH"]) / hist.means$sds["MAX_RH"],
         rhmin = (rhmin - hist.means$means["MIN_RH"]) / hist.means$sds["MIN_RH"],
-        precipitation = (precipitation - hist.means$means["TOT_PREC"]) / hist.means$sds["TOT_PREC"]
+        precipitation = (precipitation - hist.means$means["TOT_PREC"]) /
+          hist.means$sds["TOT_PREC"]
       )
 
-    intervalX <- matrix(NA, 4, 2)
-    intervalX[1, ] <- c(hist.means$scale.min["MAX_TEMP"], hist.means$scale.max["MAX_TEMP"])
-    intervalX[2, ] <- c(hist.means$scale.min["MAX_RH"], hist.means$scale.max["MAX_RH"])
-    intervalX[3, ] <- c(hist.means$scale.min["MIN_RH"], hist.means$scale.max["MIN_RH"])
-    intervalX[4, ] <- c(hist.means$scale.min["TOT_PREC"], hist.means$scale.max["TOT_PREC"])
+    interval_x <- matrix(NA, 4, 2)
+    interval_x[1, ] <- c(
+      hist.means$scale.min["MAX_TEMP"],
+      hist.means$scale.max["MAX_TEMP"]
+    )
+    interval_x[2, ] <- c(
+      hist.means$scale.min["MAX_RH"],
+      hist.means$scale.max["MAX_RH"]
+    )
+    interval_x[3, ] <- c(
+      hist.means$scale.min["MIN_RH"],
+      hist.means$scale.max["MIN_RH"]
+    )
+    interval_x[4, ] <- c(
+      hist.means$scale.min["TOT_PREC"],
+      hist.means$scale.max["TOT_PREC"]
+    )
 
-    y.ind <- y.censored <- array(NA, dim = c(10, 4, horizon))
-    for (i in seq_along(fx.sequence)) {
-      X <- nmme.scaled %>%
-        filter(time == fx.sequence[i]) %>%
+    y_ind <- y_censored <- array(NA, dim = c(10, 4, horizon))
+    for (i in seq_along(fx_sequence)) {
+      X <- nmme_scaled %>%
+        filter(time == fx_sequence[i]) %>%
         select(tmax, rhmax, rhmin, precipitation) %>%
         as.matrix()
 
-      x.ind <- x.censored <- matrix(NA, nrow(X), ncol(X))
-      for (j in 1:ncol(X)) {
-        for (n in 1:nrow(X)) {
+      x_ind <- x_censored <- matrix(NA, nrow(X), ncol(X))
+      for (j in seq_len(ncol(X))) {
+        for (n in seq_len(nrow(X))) {
           if (is.na(X[n, j])) {
             X[n, j] <- rnorm(1)
           }
 
           if (j != 4) {
-            if (X[n, j] < intervalX[j, 1]) {
-              x.ind[n, j] <- 0
-              x.censored[n, j] <- 0
-            } else if (X[n, j] > intervalX[j, 2]) {
-              x.ind[n, j] <- 0
-              x.censored[n, j] <- 1
+            if (X[n, j] < interval_x[j, 1]) {
+              x_ind[n, j] <- 0
+              x_censored[n, j] <- 0
+            } else if (X[n, j] > interval_x[j, 2]) {
+              x_ind[n, j] <- 0
+              x_censored[n, j] <- 1
             } else {
-              x.ind[n, j] <- 1
-              x.censored[n, j] <- X[n, j]
+              x_ind[n, j] <- 1
+              x_censored[n, j] <- X[n, j]
             }
           } else {
-            x.ind[n, j] <- as.numeric(X[n, j] > 0)
-            x.censored[n, j] <- as.numeric(ifelse(X[n, j] > intervalX[j, 2], 0, X[n, j]))
+            x_ind[n, j] <- as.numeric(X[n, j] > 0)
+            x_censored[n, j] <- as.numeric(ifelse(
+              X[n, j] > interval_x[j, 2],
+              0,
+              X[n, j]
+            ))
           }
         }
       }
 
-      y.ind[, , i] <- x.ind
-      y.censored[, , i] <- x.censored
+      y_ind[,, i] <- x_ind
+      y_censored[,, i] <- x_censored
     }
 
-    years.needed <- df.nmme %>%
+    years_needed <- df_nmme %>%
       select(time) %>%
       mutate(year = year(time)) %>%
       pull(year) %>%
@@ -576,12 +614,12 @@ for (t in seq_along(hindcast.seq.tick)) {
       min()
 
     # get the cgd for the day before the forecast, apply to cgd calculation from nmme
-    cary.cgdd <- weather.corrected %>%
-      filter(Date == fx.start.date - 1) %>%
+    cary_cgdd <- weather_corrected %>%
+      filter(Date == fx_start_date - 1) %>%
       pull(cgdd)
 
-    cgdd <- nmme.correct %>%
-      filter(time %in% fx.sequence) %>%
+    cgdd <- nmme_correct %>%
+      filter(time %in% fx_sequence) %>%
       mutate(year = year(time)) %>%
       group_by(ensemble, year) %>%
       mutate(
@@ -589,55 +627,55 @@ for (t in seq_along(hindcast.seq.tick)) {
         cgdd = cumsum(gd)
       ) %>%
       ungroup() %>%
-      mutate(cgdd = if_else(year == years.needed, cgdd + cary.cgdd, cgdd)) %>%
+      mutate(cgdd = if_else(year == years_needed, cgdd + cary_cgdd, cgdd)) %>%
       select(time, ensemble, cgdd) %>%
       pivot_wider(names_from = time, values_from = cgdd) %>%
       select(-ensemble)
 
     data$cgdd.mu <- apply(cgdd, 2, mean)
     data$cgdd.tau <- 1 / apply(cgdd, 2, var)
-    data$y.ind <- y.ind
-    data$y.censored <- y.censored
+    data$y_ind <- y_ind
+    data$y_censored <- y_censored
     data$mu_0 <- rep(0, ncol(X))
     data$lambda_0 <- solve(diag(100, ncol(X)))
     data$nu_0 <- ncol(X) + 1
     data$wts <- rep(1, nrow(X)) * nrow(X)
     data$Sigma_0 <- solve(diag(100, ncol(X)))
-    data$interval <- intervalX
+    data$interval <- interval_x
 
     constants$J <- ncol(X)
     constants$K <- nrow(X)
   } else {
-    weather.hind <- weather.corrected %>%
+    weather_hind <- weather_corrected %>%
       ungroup() %>%
-      filter(Date %in% fx.sequence)
+      filter(Date %in% fx_sequence)
 
-    cgdd <- weather.hind %>%
+    cgdd <- weather_hind %>%
       pull(cgdd)
 
-    muf <- weather.hind %>%
+    muf <- weather_hind %>%
       select(MAX_TEMP, MAX_RH, MIN_RH, TOT_PREC) %>%
       as.matrix()
 
     # need a prior on any missing weather from Cary
-    muf.missing <- FALSE
+    muf_missing <- FALSE
     if (any(is.na(muf))) {
-      muf.missing <- TRUE
-      n.missing <- length(which(is.na(muf)))
-      t.missing <- var.missing <- numeric(n.missing + 1) # need to add one to make a vector for single missing points
+      muf_missing <- TRUE
+      n_missing <- length(which(is.na(muf)))
+      t.missing <- var_missing <- numeric(n_missing + 1) # need to add one to make a vector for single missing points
       xx <- 1
-      for (i in 1:nrow(muf)) {
-        for (j in 1:ncol(muf)) {
+      for (i in seq_len(nrow(muf))) {
+        for (j in seq_len(ncol(muf))) {
           if (is.na(muf[i, j])) {
             t.missing[xx] <- i
-            var.missing[xx] <- j
+            var_missing[xx] <- j
             xx <- xx + 1
           }
         }
       }
-      constants$n.missing <- n.missing
+      constants$n_missing <- n_missing
       constants$t.missing <- t.missing
-      constants$var.missing <- var.missing
+      constants$var_missing <- var_missing
     }
 
     data$gdd <- cgdd
@@ -647,46 +685,47 @@ for (t in seq_along(hindcast.seq.tick)) {
   # finalize data
   data$y <- y
   data$IC <- IC
-  data$pr.phi.l <- phi.l
-  data$pr.phi.n <- phi.n
-  data$pr.phi.a <- phi.a
-  data$pr.theta.l2n <- theta.l2n
-  data$pr.theta.n2a <- theta.n2a
+  data$pr.phi_l <- phi_l
+  data$pr.phi_n <- phi_n
+  data$pr.phi_a <- phi_a
+  data$pr.theta_l2n <- theta_l2n
+  data$pr.theta_n2a <- theta_n2a
   # data$pr.repro <- repro
-  data$repro.mu <- repro.mu
-  data$pr.beta <- pr.beta
-  data$pr.sig <- pr.sig %>%
+  data$repro_mu <- repro_mu
+  data$pr_beta <- pr_beta
+  data$pr_sig <- pr_sig %>%
     select(-parameter) %>%
     as.matrix()
 
-  if (use.mice) {
-    mice.sub <- mna %>%
-      filter(time %in% fx.sequence) %>%
+  if (use_mice) {
+    mice_sub <- mna %>%
+      filter(time %in% fx_sequence) %>%
       pull(mna)
-    data$mice <- mice.sub
+    data$mice <- mice_sub
   }
 
-  if (year(fx.start.date) == 2021) { # | length(mice.sub) < length(fx.sequence)){
-    horizon <- min(length(cgdd), length(mice.sub))
+  if (year(fx_start_date) == 2021) {
+    # | length(mice_sub) < length(fx_sequence)){
+    horizon <- min(length(cgdd), length(mice_sub))
     data$y <- y[, 1:horizon]
   }
 
   # finalize constants
-  constants$n.beta <- n.beta
+  constants$n_beta <- n_beta
   constants$horizon <- horizon
   constants$ns <- 4
 
   # build inits
   inits <- function() {
     list(
-      phi.l.mu = rnorm(1, phi.l[1], 1 / sqrt(phi.l[2])),
-      phi.n.mu = rnorm(1, phi.n[1], 1 / sqrt(phi.n[2])),
-      phi.a.mu = rnorm(1, phi.a[1], 1 / sqrt(phi.a[2])),
-      theta.ln = rnorm(1, theta.l2n[1], 1 / sqrt(theta.l2n[2])),
-      theta.na = rnorm(1, theta.n2a[1], 1 / sqrt(theta.n2a[2])),
-      repro.mu = rnorm(1, repro[1], 1 / sqrt(repro[2])),
-      beta = rnorm(n.beta, pr.beta[, 1], 1 / sqrt(pr.beta[, 2])),
-      sig = rinvgamma(4, pr.sig$alpha, pr.sig$beta),
+      phi_l.mu = rnorm(1, phi_l[1], 1 / sqrt(phi_l[2])),
+      phi_n.mu = rnorm(1, phi_n[1], 1 / sqrt(phi_n[2])),
+      phi_a.mu = rnorm(1, phi_a[1], 1 / sqrt(phi_a[2])),
+      theta.ln = rnorm(1, theta_l2n[1], 1 / sqrt(theta_l2n[2])),
+      theta.na = rnorm(1, theta_n2a[1], 1 / sqrt(theta_n2a[2])),
+      repro_mu = rnorm(1, repro[1], 1 / sqrt(repro[2])),
+      beta = rnorm(n_beta, pr_beta[, 1], 1 / sqrt(pr_beta[, 2])),
+      sig = rinvgamma(4, pr_sig$alpha, pr_sig$beta),
       px = matrix(rpois(4 * horizon, 5), 4, horizon),
       x = matrix(rpois(4 * horizon, 5), 4, horizon),
       y = matrix(rpois(4 * horizon, 5), 4, horizon)
@@ -695,99 +734,102 @@ for (t in seq_along(hindcast.seq.tick)) {
 
   # source("Functions/run_hindcast_nimble.R")
   source("Scripts/DA_ticks.R")
-  cl <- makeCluster(n.slots)
-  out.nchains <- run_hindcast_nimble(
+  cl <- makeCluster(n_slots)
+  out_nchains <- run_hindcast_nimble(
     cl = cl,
     model = model.code,
     data = data,
     constants = constants,
     inits = inits,
-    n.iter = n.iter,
+    n_iter = n_iter,
     thin = 5,
-    nmme.cens = nmme.cens,
-    muf.missing = muf.missing,
-    use.mice = use.mice
+    nmme_cens = nmme_cens,
+    muf_missing = muf_missing,
+    use_mice = use_mice
   )
   stopCluster(cl)
 
-  dat.hindcast <- do.call(rbind, out.nchains)
+  dat_hindcast <- do.call(rbind, out_nchains)
 
-  p.monitor <- c(
-    "phi.l.mu",
-    "phi.n.mu",
-    "phi.a.mu",
-    "theta.ln",
-    "theta.na",
-    # "repro.mu",
-    "sig[",
-    "beta["
-  )
-
-  nodes <- colnames(out.nchains[[1]])
-  which.tick <- grep("x", nodes)
-  which.params <- which(nodes[-grep("x", nodes)] %in% nodes)
-  gelman.keep <- numeric(length(nodes))
+  nodes <- colnames(out_nchains[[1]])
+  which_tick <- grep("x", nodes)
+  which_params <- which(nodes[-grep("x", nodes)] %in% nodes)
+  gelman_keep <- numeric(length(nodes))
   for (ff in seq_along(nodes)) {
-    mcmc.check <- list()
+    mcmc_check <- list()
     col <- nodes[ff]
-    for (c in 1:length(out.nchains)) {
-      mcmc.check[[c]] <- coda::mcmc(out.nchains[[c]][, col])
+    for (c in seq_along(out_nchains)) {
+      mcmc_check[[c]] <- coda::mcmc(out_nchains[[c]][, col])
     }
-    gelman.keep[ff] <- try(coda::gelman.diag(mcmc.check, transform = TRUE)$psrf[1])
+    gelman_keep[ff] <- try(coda::gelman.diag(mcmc_check, transform = TRUE)$psrf[
+      1
+    ])
   }
 
-  if (any(gelman.keep > 1.2)) {
+  if (any(gelman_keep > 1.2)) {
     message("WARNING: Convergence not reached!")
-    bad.nodes <- which(gelman.keep > 1.2)
-    bad.params <- tibble(node = nodes[bad.nodes], psrf = gelman.keep[bad.nodes])
-    print(head(as.matrix(bad.params)))
+    bad_nodes <- which(gelman_keep > 1.2)
+    bad_params <- tibble(node = nodes[bad_nodes], psrf = gelman_keep[bad_nodes])
+    print(head(as.matrix(bad_params)))
   } else {
     message("Convergence = TRUE")
   }
 
-  draws <- sample.int(nrow(dat.hindcast), Nmc, replace = TRUE)
-  dat.draws <- dat.hindcast[draws, ]
+  draws <- sample.int(nrow(dat_hindcast), nmc, replace = TRUE)
+  dat_draws <- dat_hindcast[draws, ]
 
   # save hindcast
-  save.params <- dat.draws[, which.params] %>%
+  save_params <- dat_draws[, which_params] %>%
     as_tibble() %>%
     mutate(
-      site = as.character(ticksJob),
-      paramsFrom = as.character(paramsJob)
+      site = as.character(ticks_job),
+      paramsFrom = as.character(params_job)
     )
 
-  if (use.nmme) {
-    which.muf <- grep("muf[", colnames(save.params), fixed = TRUE)
-    which.pf <- grep("pf[", colnames(save.params), fixed = TRUE)
-    save.muf <- save.params %>% select(all_of(c(which.muf)), site, paramsFrom)
-    save.pf <- save.params %>% select(all_of(c(which.pf)), site, paramsFrom)
-    save.params <- save.params %>% select(-all_of(c(which.pf, which.muf)))
+  if (use_nmme) {
+    which_muf <- grep("muf[", colnames(save_params), fixed = TRUE)
+    which_pf <- grep("pf[", colnames(save_params), fixed = TRUE)
+    save_muf <- save_params %>% select(all_of(c(which_muf)), site, paramsFrom)
+    save_pf <- save_params %>% select(all_of(c(which_pf)), site, paramsFrom)
+    save_params <- save_params %>% select(-all_of(c(which_pf, which_muf)))
   }
 
-  dates.tb <- tibble(
-    fx.index = 1:length(fx.sequence),
-    time = fx.sequence
+  dates_tb <- tibble(
+    fx_index = seq_along(fx_sequence),
+    time = fx_sequence
   )
 
-  ticks.long <- dat.draws[, which.tick] %>%
+  ticks_long <- dat_draws[, which_tick] %>%
     as_tibble() %>%
     pivot_longer(cols = everything()) %>%
     mutate(
       lifeStage = if_else(grepl("x[1", name, fixed = TRUE), "larvae", "x"),
-      lifeStage = if_else(grepl("x[2", name, fixed = TRUE), "dormant", lifeStage),
-      lifeStage = if_else(grepl("x[3", name, fixed = TRUE), "nymphs", lifeStage),
-      lifeStage = if_else(grepl("x[4", name, fixed = TRUE), "adults", lifeStage),
-      fx.index = as.numeric(str_extract(name, "\\d*(?=\\])")),
-      row = 1:n()
+      lifeStage = if_else(
+        grepl("x[2", name, fixed = TRUE),
+        "dormant",
+        lifeStage
+      ),
+      lifeStage = if_else(
+        grepl("x[3", name, fixed = TRUE),
+        "nymphs",
+        lifeStage
+      ),
+      lifeStage = if_else(
+        grepl("x[4", name, fixed = TRUE),
+        "adults",
+        lifeStage
+      ),
+      fx_index = as.numeric(str_extract(name, "\\d*(?=\\])")),
+      row = seq_len(n())
     )
 
-  save.ticks <- left_join(ticks.long, dates.tb, by = "fx.index") %>%
+  save_ticks <- left_join(ticks_long, dates_tb, by = "fx_index") %>%
     mutate(
-      site = as.character(ticksJob),
-      paramsFrom = as.character(paramsJob)
+      site = as.character(ticks_job),
+      paramsFrom = as.character(params_job)
     )
 
-  save.ticks %>%
+  save_ticks %>%
     group_by(time, lifeStage) %>%
     summarise(
       low = quantile(value, 0.025),
@@ -808,19 +850,26 @@ for (t in seq_along(hindcast.seq.tick)) {
     facet_wrap(~lifeStage, scales = "free") +
     theme_bw()
 
-  site.params <- paste0("ticksFrom_", ticksJob, "_paramsFrom_", paramsJob)
-  exp <- if_else(use.nmme, paste0(experiment, "_nmme"), experiment)
-  dir.write <- file.path(dir.save, site.params, modelJob, exp, as.character(fx.start.date))
-  if (!dir.exists(dir.write)) dir.create(dir.write, showWarnings = FALSE, recursive = TRUE)
-
-  write_csv(save.params, file = file.path(dir.write, "parameterSamples.csv"))
-  write_csv(save.ticks, file = file.path(dir.write, "tickSamples.csv"))
-
-  if (use.nmme) {
-    write_csv(save.muf, file = file.path(dir.write, "mufSamples.csv"))
-    write_csv(save.pf, file = file.path(dir.write, "pfSamples.csv"))
+  site_params <- paste0("ticksFrom_", ticks_job, "_paramsFrom_", params_job)
+  exp <- if_else(use_nmme, paste0(experiment, "_nmme"), experiment)
+  dir_write <- file.path(
+    dir_save,
+    site_params,
+    model_job,
+    exp,
+    as.character(fx_start_date)
+  )
+  if (!dir.exists(dir_write)) {
+    dir.create(dir_write, showWarnings = FALSE, recursive = TRUE)
   }
 
+  write_csv(save_params, file = file.path(dir_write, "parameterSamples.csv"))
+  write_csv(save_ticks, file = file.path(dir_write, "tickSamples.csv"))
+
+  if (use_nmme) {
+    write_csv(save_muf, file = file.path(dir_write, "mufSamples.csv"))
+    write_csv(save_pf, file = file.path(dir_write, "pfSamples.csv"))
+  }
 
   message("\n")
 }
