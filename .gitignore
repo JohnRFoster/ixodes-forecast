@@ -50,3 +50,7 @@ rsconnect/
 
 # custom lintr
 .lintr
+
+# directories
+data/
+out/
