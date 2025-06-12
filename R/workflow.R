@@ -22,18 +22,32 @@ library(lubridate)
 library(nimble)
 library(parallel)
 
+tests <- expand_grid(
+  use_nmme = c(FALSE, TRUE),
+  use_mice = c(FALSE, TRUE),
+  remove = c(FALSE, TRUE)
+)
+
+test <- 1
+
+tests |>
+  slice(test)
+
 source("R/data_assimilation.R")
 source("R/function_run_hindcast_nimble.R")
 source("R/function_scale_met_forecast.R")
 source("R/functions_mice.R")
+source("R/functions_misc.R")
 
 n_slots <- Sys.getenv("NSLOTS") |> as.numeric()
-use_nmme <- TRUE
+# use_nmme <- TRUE
+use_nmme <- tests |> slice(test) |> pull(use_nmme)
 production <- TRUE
 n_iter <- 20000
 nmc <- 2000
 horizon <- 365
-use_mice <- TRUE
+# use_mice <- TRUE
+use_mice <- tests |> slice(test) |> pull(use_mice)
 
 dir_data <- "data"
 dir_tick <- "FinalOut/A_Correct/DormantNymphs/DormantNymph_met_and_mice_nimble_All_Global"
@@ -59,7 +73,8 @@ if (is.na(job_num)) {
   job_num <- 9
 }
 
-remove <- all.jobs$remove[job_num]
+# remove <- all.jobs$remove[job_num]
+remove <- tests |> slice(test) |> pull(remove)
 params_job <- all.jobs$paramsFrom[job_num]
 ticks_job <- all.jobs$ticksFrom[job_num]
 mice_job <- ticks_job
@@ -226,15 +241,6 @@ params_stats <- df_params |>
     tau = 1 / var(value)
   )
 
-get_prior <- function(name) {
-  pr <- numeric(2)
-  xx <- params_stats |>
-    filter(parameter == name)
-  pr[1] <- xx |> pull(mu)
-  pr[2] <- xx |> pull(tau)
-  pr
-}
-
 phi_l <- get_prior("phi.l.mu")
 phi_n <- get_prior("phi.n.mu")
 phi_a <- get_prior("phi.a.mu")
@@ -250,15 +256,6 @@ n_beta <- params_stats |>
 pr_beta <- matrix(NA, n_beta, 2)
 for (i in seq_len(n_beta)) {
   pr_beta[i, ] <- get_prior(paste0("beta[", i, "]"))
-}
-
-# function to approximate moment the inverse gamma
-inv_gamma_mm <- function(x) {
-  mu <- mean(x)
-  v <- var(x)
-  alpha <- (mu^2 / v) + 2
-  beta <- mu * ((mu^2 / v) + 1)
-  c("alpha" = alpha, "beta" = beta)
 }
 
 # get invgamma parameters
@@ -281,6 +278,10 @@ pr_sig <- df_params |>
 
 hindcast_seq_tick <- sort(c(start_date, dates_tick, end_date))
 
+if (use_nmme) {
+  hindcast_seq_tick <- hindcast_seq_tick[hindcast_seq_tick >= first(dates_nmme)]
+}
+
 if (!production) {
   hindcast_seq_tick <- hindcast_seq_tick[1:10]
 }
@@ -290,7 +291,9 @@ if (use_mice) {
 }
 
 # iterate ======================================================================================
-# hindcast_seq_tick <- hindcast_seq_tick[hindcast_seq_tick > "2019-09-05"]
+t <- 1
+# t <- 2
+# t <- 3
 for (t in seq_along(hindcast_seq_tick)) {
   fx_start_date <- hindcast_seq_tick[t]
   message("---------------------------------------------------")
@@ -305,44 +308,22 @@ for (t in seq_along(hindcast_seq_tick)) {
   # initialize nimble lists
   constants <- data <- list()
 
-  if (t == 1 && !use_nmme) {
+  if (t == 1) {
     fx_sequence <- seq.Date(fx_start_date, by = 1, length.out = horizon)
     y <- matrix(NA, 4, horizon)
   } else {
-    # read last forecast parameters and states
-    if (t == 1) {
-      site_params <- paste0("ticksFrom_", ticks_job, "_paramsFrom_", params_job)
-      exp_read <- gsub("_nmme", "", experiment) # use last forecast from related experiment
-      dir_read <- file.path(dir_save, site_params, model_job, exp_read)
-      fx_files <- list.files(dir_read) |> ymd()
-      fx_read <- fx_files[max(which(fx_files <= fx_start_date))]
-
-      last_fx <- read_csv(file.path(
-        dir_read,
-        as.character(fx_read),
-        "tickSamples.csv"
-      )) |>
-        suppressMessages()
-      last_params <- read_csv(file.path(
-        dir_read,
-        as.character(fx_read),
-        "parameterSamples.csv"
-      )) |>
-        suppressMessages()
-    } else {
-      # can just read from the last fx (t-1)
-      dir_read <- file.path(
-        dir_save,
-        site_params,
-        model_job,
-        exp,
-        as.character(hindcast_seq_tick[t - 1])
-      )
-      last_params <- read_csv(file.path(dir_read, "parameterSamples.csv")) |>
-        suppressMessages()
-      last_fx <- read_csv(file.path(dir_read, "tickSamples.csv")) |>
-        suppressMessages()
-    }
+    # can just read from the last fx (t-1)
+    dir_read <- file.path(
+      dir_save,
+      site_params,
+      model_job,
+      exp,
+      as.character(hindcast_seq_tick[t - 1])
+    )
+    last_params <- read_csv(file.path(dir_read, "parameterSamples.csv")) |>
+      suppressMessages()
+    last_fx <- read_csv(file.path(dir_read, "tickSamples.csv")) |>
+      suppressMessages()
 
     # get parameter posterior summary
     params_stats <- last_params |>
@@ -354,12 +335,11 @@ for (t in seq_along(hindcast_seq_tick)) {
         tau = 1 / var(value)
       )
 
-    phi_l <- get_prior("phi_l.mu")
-    phi_n <- get_prior("phi_n.mu")
-    phi_a <- get_prior("phi_a.mu")
+    phi_l <- get_prior("phi.l.mu")
+    phi_n <- get_prior("phi.n.mu")
+    phi_a <- get_prior("phi.a.mu")
     theta_l2n <- get_prior("theta.ln")
     theta_n2a <- get_prior("theta.na")
-    # repro <- get_prior("repro_mu")
 
     pr_beta <- matrix(NA, n_beta, 2)
     for (i in seq_len(n_beta)) {
@@ -410,36 +390,13 @@ for (t in seq_along(hindcast_seq_tick)) {
         values_from = tau
       )
 
-    IC <- matrix(NA, 4, 2)
-    IC[1, 1] <- fx_mu |>
-      filter(lifeStage == "larvae") |>
-      pull(as.character(fx_start_date))
-    IC[1, 2] <- fx_tau |>
-      filter(lifeStage == "larvae") |>
-      pull(as.character(fx_start_date))
-    IC[2, 1] <- fx_mu |>
-      filter(lifeStage == "dormant") |>
-      pull(as.character(fx_start_date))
-    IC[2, 2] <- fx_tau |>
-      filter(lifeStage == "dormant") |>
-      pull(as.character(fx_start_date))
-    IC[3, 1] <- fx_mu |>
-      filter(lifeStage == "nymphs") |>
-      pull(as.character(fx_start_date))
-    IC[3, 2] <- fx_tau |>
-      filter(lifeStage == "nymphs") |>
-      pull(as.character(fx_start_date))
-    IC[4, 1] <- fx_mu |>
-      filter(lifeStage == "adults") |>
-      pull(as.character(fx_start_date))
-    IC[4, 2] <- fx_tau |>
-      filter(lifeStage == "adults") |>
-      pull(as.character(fx_start_date))
+    IC <- create_ic(fx_mu, fx_tau, fx_start_date)
 
     fx_sequence <- seq.Date(fx_start_date, by = 1, length.out = horizon)
     n_days <- length(fx_sequence)
   }
 
+  # get the weather data for the forecast period
   nmme_cens <- FALSE
   if (use_nmme) {
     nmme_cens <- TRUE
@@ -521,17 +478,6 @@ for (t in seq_along(hindcast_seq_tick)) {
         )
       nmme_correct <- bind_rows(nmme_correct, psub)
     }
-
-    # nmme_correct |>
-    #   pivot_longer(cols = c(tmax, precipitation, rhmin, rhmax),
-    #                names_to = "variable") |>
-    #   mutate(ensemble = as.character(ensemble)) |>
-    #   # filter(variable == "rhmax") |>
-    #   ggplot() +
-    #   aes(x = time, y = value, color = ensemble) +
-    #   geom_line() +
-    #   facet_wrap(~ variable) +
-    #   theme_bw()
 
     # scale to historical period
     nmme_scaled <- nmme_correct |>
@@ -660,19 +606,19 @@ for (t in seq_along(hindcast_seq_tick)) {
     if (any(is.na(muf))) {
       muf_missing <- TRUE
       n_missing <- length(which(is.na(muf)))
-      t.missing <- var_missing <- numeric(n_missing + 1) # need to add one to make a vector for single missing points
+      t_missing <- var_missing <- numeric(n_missing + 1) # need to add one to make a vector for single missing points
       xx <- 1
       for (i in seq_len(nrow(muf))) {
         for (j in seq_len(ncol(muf))) {
           if (is.na(muf[i, j])) {
-            t.missing[xx] <- i
+            t_missing[xx] <- i
             var_missing[xx] <- j
             xx <- xx + 1
           }
         }
       }
       constants$n_missing <- n_missing
-      constants$t.missing <- t.missing
+      constants$t_missing <- t_missing
       constants$var_missing <- var_missing
     }
 
@@ -688,7 +634,6 @@ for (t in seq_along(hindcast_seq_tick)) {
   data$pr.phi_a <- phi_a
   data$pr.theta_l2n <- theta_l2n
   data$pr.theta_n2a <- theta_n2a
-  # data$pr.repro <- repro
   data$repro_mu <- repro_mu
   data$pr_beta <- pr_beta
   data$pr_sig <- pr_sig |>
@@ -733,14 +678,14 @@ for (t in seq_along(hindcast_seq_tick)) {
   cl <- makeCluster(n_slots)
   out_nchains <- run_hindcast_nimble(
     cl = cl,
-    model = model.code,
+    code = model_code,
     data = data,
     constants = constants,
     inits = inits,
     n_iter = n_iter,
     thin = 5,
     nmme_cens = nmme_cens,
-    muf_missing = muf_missing,
+    mu_f_missing = muf_missing,
     use_mice = use_mice
   )
   stopCluster(cl)

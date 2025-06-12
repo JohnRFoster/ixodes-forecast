@@ -1,6 +1,6 @@
 run_hindcast_nimble <- function(
   cl,
-  model,
+  code,
   data,
   constants,
   inits,
@@ -12,7 +12,7 @@ run_hindcast_nimble <- function(
 ) {
   # Run hindcast using nimble
   # cl: cluster object
-  # model: nimble model object
+  # code: nimble model object
   # data: list of data objects
   # constants: list of constants
   # inits: function to generate initial values
@@ -26,12 +26,12 @@ run_hindcast_nimble <- function(
   require(nimble)
   require(coda)
 
-  source("Functions/nimble_functions.R")
+  source("R/functions_nimble.R")
 
   n_cores <- length(cl) # number of cores used
 
   export_vec <- c(
-    "model",
+    "code",
     "constants",
     "data",
     "n_iter",
@@ -73,7 +73,7 @@ run_hindcast_nimble <- function(
     ))
 
     model <- nimbleModel(
-      code = model_code,
+      code = code,
       constants = constants,
       data = data,
       inits = init

@@ -1,15 +1,4 @@
 library(nimble)
-# source("Functions/nimble_functions.R")
-#
-# registerDistributions(list(dwtmnorm = list(
-#   BUGSdist = "dwtmnorm(mean, prec, wt)",
-#   types = c(
-#     'value = double(1)',
-#     'mean = double(1)',
-#     'prec = double(2)',
-#     'wt = double(0)'
-#   )
-# )))
 
 model_code <- nimbleCode({
 	### priors
@@ -55,15 +44,15 @@ model_code <- nimbleCode({
 	}
 
 	# if there are missing weather from Cary
-	if (muf.missing) {
-		for (i in 1:n.missing) {
-			muf[t.missing[i], var.missing[i]] ~ dnorm(0, tau = 1)
+	if (mu_f_missing) {
+		for (i in 1:n_missing) {
+			muf[t_missing[i], var_missing[i]] ~ dnorm(0, tau = 1)
 		}
 	}
 
 	### define parameters, loop over every day in time series
 	for (t in 1:horizon) {
-		if (use.mice) {
+		if (use_mice) {
 			logit(l2n[t]) <- theta.ln + beta[13] * mice[t]
 			logit(n2a[t]) <- theta.na + beta[14] * mice[t]
 		} else {
@@ -83,7 +72,7 @@ model_code <- nimbleCode({
 		)
 		l2n_quest[t] <- if_else_nimble((gdd[t] >= 400) & (gdd[t] <= 2500), 1, 0)
 
-		if (nmme.cens) {
+		if (nmme_cens) {
 			for (i in 1:K) {
 				y.censored[i, 1:J, t] ~
 					dwtmnorm(mean = muf[t, 1:J], prec = pf[1:J, 1:J, t], wt = wts[i])
