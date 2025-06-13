@@ -54,3 +54,6 @@ rsconnect/
 # directories
 data/
 out/
+
+# tmp doc
+R/scratch.R
