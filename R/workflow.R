@@ -23,12 +23,12 @@ library(nimble)
 library(parallel)
 
 tests <- expand_grid(
-  use_nmme = c(FALSE, TRUE),
-  use_mice = c(FALSE, TRUE),
+  use_nmme = TRUE,
+  use_mice = TRUE,
   remove = c(FALSE, TRUE)
 )
 
-test <- 1
+test <- 2
 
 tests |>
   slice(test)
@@ -39,7 +39,7 @@ source("R/function_scale_met_forecast.R")
 source("R/functions_mice.R")
 source("R/functions_misc.R")
 
-n_slots <- Sys.getenv("NSLOTS") |> as.numeric()
+n_slots <- 3 # 3 chains
 # use_nmme <- TRUE
 use_nmme <- tests |> slice(test) |> pull(use_nmme)
 production <- TRUE
@@ -50,17 +50,14 @@ horizon <- 365
 use_mice <- tests |> slice(test) |> pull(use_mice)
 
 dir_data <- "data"
-dir_tick <- "FinalOut/A_Correct/DormantNymphs/DormantNymph_met_and_mice_nimble_All_Global"
-dir_mice <- "FinalOut"
 dir_nmme <- file.path(dir_data, "NMME")
-dir_analysis <- file.path("Analysis/dormantStages/nimbleModels")
-dir_save <- file.path(dir_mice, "Chapter2")
+dir_save <- "out"
 
 # field sites
 sites <- c("Green", "Henry", "Tea")
 
-# all possible combinations for hindcast experiments
-all.jobs <- expand.grid(
+# all possible combinajobstions for hindcast experiments
+all_jobs <- expand.grid(
   paramsFrom = sites,
   ticksFrom = sites,
   remove = c(TRUE, FALSE)
@@ -73,10 +70,10 @@ if (is.na(job_num)) {
   job_num <- 9
 }
 
-# remove <- all.jobs$remove[job_num]
+# remove <- all_jobs$remove[job_num]
 remove <- tests |> slice(test) |> pull(remove)
-params_job <- all.jobs$paramsFrom[job_num]
-ticks_job <- all.jobs$ticksFrom[job_num]
+params_job <- all_jobs$paramsFrom[job_num]
+ticks_job <- all_jobs$ticksFrom[job_num]
 mice_job <- ticks_job
 model_job <- if_else(use_mice, "WithWeatherAndMiceGlobal", "Weather")
 ua_from <- if_else(
@@ -170,7 +167,6 @@ mu_precip_year <- cary_met |>
 nmme_files <- list.files(file.path(dir_nmme))
 dates_nmme <- ymd(nmme_files)
 
-# which observations fall within the larval phenological window and are not peak nymph for that year?
 if (remove) {
   data_tick <- data_tick |>
     mutate(Larvae = NA)
@@ -629,11 +625,11 @@ for (t in seq_along(hindcast_seq_tick)) {
   # finalize data
   data$y <- y
   data$IC <- IC
-  data$pr.phi_l <- phi_l
-  data$pr.phi_n <- phi_n
-  data$pr.phi_a <- phi_a
-  data$pr.theta_l2n <- theta_l2n
-  data$pr.theta_n2a <- theta_n2a
+  data$pr_phi_l <- phi_l
+  data$pr_phi_n <- phi_n
+  data$pr_phi_a <- phi_a
+  data$pr_theta_l2n <- theta_l2n
+  data$pr_theta_n2a <- theta_n2a
   data$repro_mu <- repro_mu
   data$pr_beta <- pr_beta
   data$pr_sig <- pr_sig |>
@@ -661,17 +657,15 @@ for (t in seq_along(hindcast_seq_tick)) {
   # build inits
   inits <- function() {
     list(
-      phi_l.mu = rnorm(1, phi_l[1], 1 / sqrt(phi_l[2])),
-      phi_n.mu = rnorm(1, phi_n[1], 1 / sqrt(phi_n[2])),
-      phi_a.mu = rnorm(1, phi_a[1], 1 / sqrt(phi_a[2])),
+      phi.l.mu = rnorm(1, phi_l[1], 1 / sqrt(phi_l[2])),
+      phi.n.mu = rnorm(1, phi_n[1], 1 / sqrt(phi_n[2])),
+      phi.a.mu = rnorm(1, phi_a[1], 1 / sqrt(phi_a[2])),
       theta.ln = rnorm(1, theta_l2n[1], 1 / sqrt(theta_l2n[2])),
       theta.na = rnorm(1, theta_n2a[1], 1 / sqrt(theta_n2a[2])),
-      repro_mu = rnorm(1, repro[1], 1 / sqrt(repro[2])),
       beta = rnorm(n_beta, pr_beta[, 1], 1 / sqrt(pr_beta[, 2])),
       sig = rinvgamma(4, pr_sig$alpha, pr_sig$beta),
       px = matrix(rpois(4 * horizon, 5), 4, horizon),
-      x = matrix(rpois(4 * horizon, 5), 4, horizon),
-      y = matrix(rpois(4 * horizon, 5), 4, horizon)
+      x = matrix(rpois(4 * horizon, 5), 4, horizon)
     )
   }
 
