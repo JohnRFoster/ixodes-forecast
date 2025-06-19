@@ -60,6 +60,8 @@ run_hindcast_nimble <- function(
     library(nimble)
     library(coda)
 
+    nimbleOptions(MCMCusePosteriorPredictiveSampler = FALSE)
+
     registerDistributions(list(
       dwtmnorm = list(
         BUGSdist = "dwtmnorm(mean, prec, wt)",
@@ -81,17 +83,17 @@ run_hindcast_nimble <- function(
 
     c_model <- compileNimble(model)
 
-    p_monitor <- c(
+    monitor <- c(
       "phi.l.mu",
       "phi.n.mu",
       "phi.a.mu",
       "theta.ln",
       "theta.na",
       "sig",
-      "beta"
+      "beta",
+      "x"
     )
 
-    monitor <- c(p_monitor, "x")
     mcmc_conf <- configureMCMC(c_model, monitors = monitor, thin = thin)
 
     # add appropriate samples for y.censored nodes
@@ -132,12 +134,19 @@ run_hindcast_nimble <- function(
       }
     }
 
+    mcmc_conf$printSamplers(byType = TRUE)
+
     r_mcmc <- buildMCMC(mcmc_conf)
     c_mcmc <- compileNimble(r_mcmc)
     c_mcmc$run(niter = n_iter, nburnin = 0.3 * n_iter)
 
     return(as.mcmc(as.matrix(c_mcmc$mvSamples)))
   })
+
+  # x1 <- as.mcmc(as.matrix(c_mcmc$mvSamples))
+  # x2 <- x1[, grep("x", colnames(x1))]
+  # summary(x2[, 1:20])
+  # which(as.vector(apply(x2, 2, min)) < 0)
 
   message("MCMC run complete.")
   as.mcmc.list(out)
