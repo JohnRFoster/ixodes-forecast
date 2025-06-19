@@ -347,3 +347,180 @@ get_limit <- function(df) {
 	idx <- max(which(tmp$mu >= 0))
 	tmp$x[idx]
 }
+
+
+parameter_names <- function(df) {
+	df |>
+		mutate(
+			weather = if_else(grepl("nmme", experiment), "NMME", "CARY"),
+			remove = if_else(grepl("remove", experiment), "No larvae", "Larvae"),
+			mice = if_else(grepl("mna", experiment), "Mice", "No Mice"),
+			within = if_else(paramsFrom == ticksFrom, "Within", "Across"),
+			parameter.name = if_else(grepl("beta", parameter), "Weather Effect", "x"),
+			parameter.name = if_else(
+				grepl("phi.a.mu", parameter),
+				"Adult Survival Rate",
+				parameter.name
+			),
+			parameter.name = if_else(
+				grepl("phi.l.mu", parameter),
+				"Larvae Survival Rate",
+				parameter.name
+			),
+			parameter.name = if_else(
+				grepl("phi.n.mu", parameter),
+				"Nymph Survival Rate",
+				parameter.name
+			),
+			parameter.name = if_else(
+				parameter == "sig[1]",
+				"Larvae process variance",
+				parameter.name
+			),
+			parameter.name = if_else(
+				parameter == "sig[2]",
+				"Dormant process variance",
+				parameter.name
+			),
+			parameter.name = if_else(
+				parameter == "sig[3]",
+				"Nymph process variance",
+				parameter.name
+			),
+			parameter.name = if_else(
+				parameter == "sig[4]",
+				"Adult process variance",
+				parameter.name
+			),
+			parameter.name = if_else(
+				grepl("theta.ln", parameter),
+				"Larvae-Nymph Transition Rate",
+				parameter.name
+			),
+			parameter.name = if_else(
+				grepl("theta.na", parameter),
+				"Nymph-Adult Transition Rate",
+				parameter.name
+			),
+			parameter.name = if_else(
+				parameter == "beta[13]",
+				"Larvae-Nymph Effect",
+				parameter.name
+			),
+			parameter.name = if_else(
+				parameter == "beta[14]",
+				"Nymph-Adult Effect",
+				parameter.name
+			),
+			driver = if_else(
+				parameter %in% c("beta[1]", "beta[5]", "beta[9]"),
+				"Max Temp",
+				"x"
+			),
+			driver = if_else(
+				parameter %in% c("beta[2]", "beta[6]", "beta[10]"),
+				"Max RH",
+				driver
+			),
+			driver = if_else(
+				parameter %in% c("beta[3]", "beta[7]", "beta[11]"),
+				"Min RH",
+				driver
+			),
+			driver = if_else(
+				parameter %in% c("beta[4]", "beta[8]", "beta[12]"),
+				"Precip",
+				driver
+			),
+			driver = if_else(
+				parameter %in% c("beta[13]", "beta[14]"),
+				"Mice",
+				driver
+			),
+			lifeStage = if_else(
+				parameter %in% c("beta[1]", "beta[2]", "beta[3]", "beta[4]"),
+				"Larvae",
+				"transition"
+			),
+			lifeStage = if_else(
+				parameter %in% c("beta[5]", "beta[6]", "beta[7]", "beta[8]"),
+				"Nymphs",
+				lifeStage
+			),
+			lifeStage = if_else(
+				parameter %in% c("beta[9]", "beta[10]", "beta[11]", "beta[12]"),
+				"Adults",
+				lifeStage
+			),
+			lifeStage = if_else(grepl("phi.l.mu", parameter), "Larvae", lifeStage),
+			lifeStage = if_else(grepl("phi.n.mu", parameter), "Nymphs", lifeStage),
+			lifeStage = if_else(grepl("phi.a.mu", parameter), "Adults", lifeStage)
+		) %>%
+		rename(site = ticksFrom)
+}
+
+plot_phenology_scores <- function(d, ls, df_process, df_null) {
+	rect <- tibble(
+		lifeStage = c("Larvae", "Nymphs", "Adults"),
+		xmin = c(yday("2022-07-01"), yday("2022-05-01"), yday("2022-08-01")),
+		xmax = c(yday("2022-10-01"), yday("2022-08-01"), yday("2022-05-01"))
+	)
+
+	df_null <- df_null |>
+		filter(lifeStage == ls)
+
+	gg <- df_process |>
+		filter(driver == d, lifeStage == ls) |>
+		mutate(
+			driver = if_else(
+				driver == "CARY",
+				"Observed weather",
+				"Forecasted weather"
+			)
+		) |>
+		mutate(instance = paste(remove, mice, sep = " ")) |>
+		mutate(
+			instance = stringr::str_replace(instance, "CARY ", ""),
+			instance = if_else(grepl("Null", instance), "Day-of-year", instance)
+		) |>
+		bind_rows(df_null) |>
+		ggplot() +
+		aes(x = doy) +
+		geom_smooth(
+			aes(y = score, color = instance),
+			se = FALSE,
+			method = "loess"
+		) +
+		scale_color_manual(values = instance_cols) +
+		scale_y_continuous(limits = c(0, NA)) +
+		scale_x_continuous(labels = labels, breaks = breaks) +
+		labs(
+			x = "Day of Year",
+			y = "CRPS",
+			color = "Data in model",
+			title = if_else(d == "CARY", "Observed weather", "Forecasted weather")
+		) +
+		theme_bw() +
+		annotate(
+			geom = "rect",
+			xmin = xmin,
+			xmax = xmax,
+			ymin = 0,
+			ymax = Inf,
+			alpha = 0.25
+		)
+	gg
+}
+
+transfer_plot <- function(df, ls) {
+	df |>
+		filter(lifeStage == ls) |>
+		ggplot() +
+		aes(xmin = lwr.ci, x = med, xmax = upr.ci, y = instance, color = transfer) +
+		geom_point(position = position_dodge(width = w)) +
+		geom_linerange(position = position_dodge(width = w)) +
+		facet_grid(frame ~ driver) +
+		scale_color_manual(values = transfer_cols) +
+		labs(x = "CRPS", y = "Data in model", color = "Parameter-site match") +
+		theme_bw()
+}
