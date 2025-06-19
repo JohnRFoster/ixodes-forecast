@@ -2,18 +2,18 @@ library(nimble)
 
 model_code <- nimbleCode({
 	### priors
-	phi_l.mu ~ dnorm(pr.phi_l[1], tau = pr.phi_l[2]) # larvae survival
-	phi_n.mu ~ dnorm(pr.phi_n[1], tau = pr.phi_n[2]) # nymph survival
-	phi_a.mu ~ dnorm(pr.phi_a[1], tau = pr.phi_a[2]) # adult survival
-	theta.ln ~ dnorm(pr.theta.l2n[1], tau = pr.theta.l2n[2]) # larvae -> dormant nymph daily transition
-	theta.na ~ dnorm(pr.theta_n2a[1], tau = pr.theta_n2a[2]) # larvae -> questing nymph daily transition
+	phi.l.mu ~ dnorm(pr_phi_l[1], tau = pr_phi_l[2]) # larvae survival
+	phi.n.mu ~ dnorm(pr_phi_n[1], tau = pr_phi_n[2]) # nymph survival
+	phi.a.mu ~ dnorm(pr_phi_a[1], tau = pr_phi_a[2]) # adult survival
+	theta.ln ~ dnorm(pr_theta_l2n[1], tau = pr_theta_l2n[2]) # larvae -> dormant nymph daily transition
+	theta.na ~ dnorm(pr_theta_n2a[1], tau = pr_theta_n2a[2]) # larvae -> questing nymph daily transition
 
-	for (j in 1:n.beta) {
-		beta[j] ~ dnorm(pr.beta[j, 1], tau = pr.beta[j, 2])
+	for (j in 1:n_beta) {
+		beta[j] ~ dnorm(pr_beta[j, 1], tau = pr_beta[j, 2])
 	}
 
 	for (i in 1:ns) {
-		sig[i] ~ dinvgamma(pr.sig[i, 1], pr.sig[i, 2])
+		sig[i] ~ dinvgamma(pr_sig[i, 1], pr_sig[i, 2])
 	}
 
 	### precision priors
@@ -67,7 +67,7 @@ model_code <- nimbleCode({
 		)
 		lambda[t] <- if_else_nimble(
 			(gdd[t] >= 1400) & (gdd[t] <= 2500),
-			repro.mu,
+			repro_mu,
 			0
 		)
 		l2n_quest[t] <- if_else_nimble((gdd[t] >= 400) & (gdd[t] <= 2500), 1, 0)
@@ -96,19 +96,19 @@ model_code <- nimbleCode({
 		}
 
 		# daily survival model
-		logit(phi_l[t]) <- phi_l.mu +
+		logit(phi_l[t]) <- phi.l.mu +
 			beta[1] * muf[t, 1] +
 			beta[2] * muf[t, 2] +
 			beta[3] * muf[t, 3] +
 			beta[4] * muf[t, 4]
 
-		logit(phi_n[t]) <- phi_n.mu +
+		logit(phi_n[t]) <- phi.n.mu +
 			beta[5] * muf[t, 1] +
 			beta[6] * muf[t, 2] +
 			beta[7] * muf[t, 3] +
 			beta[8] * muf[t, 4]
 
-		logit(phi_a[t]) <- phi_a.mu +
+		logit(phi_a[t]) <- phi.a.mu +
 			beta[9] * muf[t, 1] +
 			beta[10] * muf[t, 2] +
 			beta[11] * muf[t, 3] +
