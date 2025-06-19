@@ -143,11 +143,6 @@ run_hindcast_nimble <- function(
     return(as.mcmc(as.matrix(c_mcmc$mvSamples)))
   })
 
-  # x1 <- as.mcmc(as.matrix(c_mcmc$mvSamples))
-  # x2 <- x1[, grep("x", colnames(x1))]
-  # summary(x2[, 1:20])
-  # which(as.vector(apply(x2, 2, min)) < 0)
-
   message("MCMC run complete.")
   as.mcmc.list(out)
 }
