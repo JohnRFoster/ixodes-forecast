@@ -1,6 +1,5 @@
 #=====================================================#
 # This script creates the null model for the hindcast
-# (chapter 2)
 #
 # The model is historical means for each week at each site
 #=====================================================#

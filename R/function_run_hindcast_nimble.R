@@ -1,3 +1,15 @@
+# workhorse function to run hindcast using an mcmc via nimble
+# cl: cluster object
+# code: nimble model object
+# data: list of data objects
+# constants: list of constants
+# inits: function to generate initial values
+# n_iter: number of iterations for MCMC
+# thin: thinning interval for MCMC
+# nmme_cens: logical, whether to include censored weather nodes
+# mu_f_missing: logical, whether to handle missing weather data with micee
+# use_mice: logical, whether to use micee for missing data imputation
+
 run_hindcast_nimble <- function(
   cl,
   code,
@@ -10,18 +22,6 @@ run_hindcast_nimble <- function(
   mu_f_missing,
   use_mice
 ) {
-  # Run hindcast using nimble
-  # cl: cluster object
-  # code: nimble model object
-  # data: list of data objects
-  # constants: list of constants
-  # inits: function to generate initial values
-  # n_iter: number of iterations for MCMC
-  # thin: thinning interval for MCMC
-  # nmme_cens: logical, whether to include censored weather nodes
-  # mu_f_missing: logical, whether to handle missing weather data with micee
-  # use_mice: logical, whether to use micee for missing data imputation
-
   require(parallel)
   require(nimble)
   require(coda)

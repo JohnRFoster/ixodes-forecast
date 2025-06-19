@@ -1,14 +1,4 @@
 ## main hindcast workflow script
-## 1 - setup
-## 3 - state data intake
-## 4 - weather data intake
-## 5 - create informative priors
-## 6 - get initial conditions
-## 7 - forecast step
-## 7a - mice
-## 7b - ticks
-## 8 - analysis step
-## 9 - save
 
 # =========================================== #
 #       1 - setup

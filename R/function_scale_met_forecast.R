@@ -1,6 +1,8 @@
+#' Scale meteorological data for forecasting
+#' the scaling is based on the calibration period (1995-2005)
+
 library(plantecophys)
 library(dplyr)
-#' Scale meteorological data for forecasting
 
 scale_met_forecast <- function() {
 	met <- read.csv("Data/Cary_Met_Data_Daily.csv")

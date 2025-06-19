@@ -1,3 +1,5 @@
+# script to generate figures for the manuscript
+
 library(tidyverse)
 library(lubridate)
 library(MetBrewer)

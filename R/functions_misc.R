@@ -1,3 +1,5 @@
+# miscellaneous functions used throughout the workkflow
+
 create_ic <- function(df_mu, df_tau, start_date) {
 	IC <- matrix(NA, 4, 2)
 	IC[1, 1] <- df_mu |>

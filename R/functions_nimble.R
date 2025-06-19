@@ -1,3 +1,5 @@
+# helper functions specific to nimble
+
 library(nimble)
 
 #' random weighted multivariate normal

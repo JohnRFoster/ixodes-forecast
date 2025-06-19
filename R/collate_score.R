@@ -1,3 +1,5 @@
+# Collate, score, and calculate quantiles for process model forecasts
+
 library(tidyverse)
 library(lubridate)
 

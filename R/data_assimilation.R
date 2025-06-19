@@ -1,3 +1,5 @@
+# nimble model code for the data assimilation of the tick model
+
 library(nimble)
 
 model_code <- nimbleCode({
@@ -6,7 +8,7 @@ model_code <- nimbleCode({
 	phi.n.mu ~ dnorm(pr_phi_n[1], tau = pr_phi_n[2]) # nymph survival
 	phi.a.mu ~ dnorm(pr_phi_a[1], tau = pr_phi_a[2]) # adult survival
 	theta.ln ~ dnorm(pr_theta_l2n[1], tau = pr_theta_l2n[2]) # larvae -> dormant nymph daily transition
-	theta.na ~ dnorm(pr_theta_n2a[1], tau = pr_theta_n2a[2]) # larvae -> questing nymph daily transition
+	theta.na ~ dnorm(pr_theta_n2a[1], tau = pr_theta_n2a[2]) # questing nymph -> adult daily transition
 
 	for (j in 1:n_beta) {
 		beta[j] ~ dnorm(pr_beta[j, 1], tau = pr_beta[j, 2])
