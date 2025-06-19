@@ -54,6 +54,8 @@ rsconnect/
 # directories
 data/
 out/
+analysis/
+plots/
 
 # tmp doc
 R/scratch.R
