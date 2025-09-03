@@ -17,7 +17,7 @@ site_vec <- c("Green", "Henry", "Tea")
 exp.vec <- c("base", "base_remove", "base_nmme_nmme", "base_remove_nmme_nmme")
 model_vec <- c("Weather")
 
-fx_scores <- read_csv(file.path(dir_out, "allForecastScores.csv"))
+fx_scores <- read_csv(file.path(dir_data, "allForecastScores.csv"))
 
 crps_process <- fx_scores |>
 	filter(metric == "crps", model != "Null", model != "null") |>
@@ -160,37 +160,23 @@ delta_ylim <- c(-2, 12)
 plot_df <- make_plot_df(pred_data_nymphs)
 
 ## nymph lead time ----
-g <- list()
-g[[1]] <- plot_df |>
-	plot_gam("score", "Obs. weather", vline) +
-	coord_cartesian(ylim = crps_ylim)
-g[[2]] <- plot_df |>
-	plot_gam("score", "FX weather", vline) +
-	coord_cartesian(ylim = crps_ylim)
-g[[3]] <- pred_data_nymphs |>
-	filter(instance != "Day-of-year") |>
-	rename(delta = value) |>
-	plot_gam("delta", "Obs. weather", vline) +
-	coord_cartesian(ylim = delta_ylim) +
-	geom_hline(yintercept = 0, linetype = "dashed")
-g[[4]] <- pred_data_nymphs |>
-	filter(instance != "Day-of-year") |>
-	rename(delta = value) |>
-	plot_gam("delta", "FX weather", vline) +
-	coord_cartesian(ylim = delta_ylim) +
-	geom_hline(yintercept = 0, linetype = "dashed")
-
-g1 <- ggarrange(
-	plotlist = g,
-	nrow = 2,
-	ncol = 2,
-	align = "hv",
-	legend = "bottom",
-	labels = "AUTO",
-	common.legend = TRUE
+g1_q <- wrap_plots(
+	plot_df,
+	pred_data_nymphs,
+	"Questing",
+	vline,
+	crps_ylim,
+	delta_ylim
+)
+g1_d <- wrap_plots(
+	plot_df,
+	pred_data_nymphs,
+	"Dormant",
+	vline,
+	crps_ylim,
+	delta_ylim
 )
 
-g1
 
 df_tick <- read_csv(file.path(dir_data, "Ticks2006_2021.csv"))
 tick_grid <- df_tick |>
@@ -211,18 +197,37 @@ tick_grid <- df_tick |>
 
 g3 <- plot_ticks_on_drag_cloths(tick_grid, crps_skill, "Nymphs")
 
-gh <-
+ghq <-
 	ggarrange(
-		g1,
+		g1_q,
 		g3,
 		nrow = 2,
 		heights = c(2, 1),
 		labels = c("", "E"),
 		legend = "bottom"
 	)
-gh
+ghq
 ggsave(
-	"leadTimeGamCary_nymphs.jpeg",
+	"leadTimeGamCary_nymphs_questing.jpeg",
+	dpi = "retina",
+	path = dir_plot,
+	width = 18,
+	height = 18,
+	units = "cm"
+)
+
+ghd <-
+	ggarrange(
+		g1_d,
+		g3,
+		nrow = 2,
+		heights = c(2, 1),
+		labels = c("", "E"),
+		legend = "bottom"
+	)
+ghd
+ggsave(
+	"leadTimeGamCary_nymphs_dormant.jpeg",
 	dpi = "retina",
 	path = dir_plot,
 	width = 18,
@@ -254,53 +259,57 @@ plot_df <- make_plot_df(pred_data_larvae)
 crps_ylim <- c(-400, 50)
 delta_ylim <- c(-275, 500)
 
-# nymph lead time gam plots
-g <- list()
-g[[1]] <- plot_df |>
-	plot_gam("score", "Obs. weather", vline) +
-	coord_cartesian(ylim = crps_ylim)
-g[[2]] <- plot_df |>
-	plot_gam("score", "FX weather", vline) +
-	coord_cartesian(ylim = crps_ylim)
-g[[3]] <- pred_data_larvae |>
-	filter(instance != "Day-of-year") |>
-	rename(delta = value) |>
-	plot_gam("delta", "Obs. weather", vline) +
-	coord_cartesian(ylim = delta_ylim) +
-	geom_hline(yintercept = 0, linetype = "dashed")
-g[[4]] <- pred_data_larvae |>
-	filter(instance != "Day-of-year") |>
-	rename(delta = value) |>
-	plot_gam("delta", "FX weather", vline) +
-	coord_cartesian(ylim = delta_ylim) +
-	geom_hline(yintercept = 0, linetype = "dashed")
-
-g1 <- ggarrange(
-	plotlist = g,
-	nrow = 2,
-	ncol = 2,
-	align = "hv",
-	legend = "bottom",
-	labels = "AUTO",
-	common.legend = TRUE
+# larvae lead time gam plots
+g1_q <- wrap_plots(
+	plot_df,
+	pred_data_larvae,
+	"Questing",
+	vline,
+	crps_ylim,
+	delta_ylim
 )
-
-g1
+g1_d <- wrap_plots(
+	plot_df,
+	pred_data_larvae,
+	"Dormant",
+	vline,
+	crps_ylim,
+	delta_ylim
+)
 
 g3 <- plot_ticks_on_drag_cloths(tick_grid, crps_skill, "Larvae")
 
-gh <-
+ghq <-
 	ggarrange(
-		g1,
+		g1_q,
 		g3,
 		nrow = 2,
 		heights = c(2, 1),
 		labels = c("", "E"),
 		legend = "bottom"
 	)
-gh
+ghq
 ggsave(
-	"leadTimeGamCary_larvae.jpeg",
+	"leadTimeGamCary_larvae_questing.jpeg",
+	dpi = "retina",
+	path = dir_plot,
+	width = 18,
+	height = 18,
+	units = "cm"
+)
+
+ghd <-
+	ggarrange(
+		g1_d,
+		g3,
+		nrow = 2,
+		heights = c(2, 1),
+		labels = c("", "E"),
+		legend = "bottom"
+	)
+ghd
+ggsave(
+	"leadTimeGamCary_larvae_dormant.jpeg",
 	dpi = "retina",
 	path = dir_plot,
 	width = 18,
@@ -331,53 +340,38 @@ plot_df <- make_plot_df(pred_data_adults)
 crps_ylim <- c(-1.5, 6)
 delta_ylim <- c(-1, 6)
 
-# nymph lead time gam plots
-g <- list()
-g[[1]] <- plot_df |>
-	plot_gam("score", "Obs. weather", vline) +
-	coord_cartesian(ylim = crps_ylim)
-g[[2]] <- plot_df |>
-	plot_gam("score", "FX weather", vline) +
-	coord_cartesian(ylim = crps_ylim)
-g[[3]] <- pred_data_adults |>
-	filter(instance != "Day-of-year") |>
-	rename(delta = value) |>
-	plot_gam("delta", "Obs. weather", vline) +
-	coord_cartesian(ylim = delta_ylim) +
-	geom_hline(yintercept = 0, linetype = "dashed")
-g[[4]] <- pred_data_adults |>
-	filter(instance != "Day-of-year") |>
-	rename(delta = value) |>
-	plot_gam("delta", "FX weather", vline) +
-	coord_cartesian(ylim = delta_ylim) +
-	geom_hline(yintercept = 0, linetype = "dashed")
-
-g1 <- ggarrange(
-	plotlist = g,
-	nrow = 2,
-	ncol = 2,
-	align = "hv",
-	legend = "bottom",
-	labels = "AUTO",
-	common.legend = TRUE
+# adult lead time gam plots
+g1_q <- wrap_plots(
+	plot_df,
+	pred_data_adults,
+	"Questing",
+	vline,
+	crps_ylim,
+	delta_ylim
 )
-
-g1
+g1_d <- wrap_plots(
+	plot_df,
+	pred_data_adults,
+	"Dormant",
+	vline,
+	crps_ylim,
+	delta_ylim
+)
 
 g3 <- plot_ticks_on_drag_cloths(tick_grid, crps_skill, "Adults")
 
-gh <-
+ghq <-
 	ggarrange(
-		g1,
+		g1_q,
 		g3,
 		nrow = 2,
 		heights = c(2, 1),
 		labels = c("", "E"),
 		legend = "bottom"
 	)
-gh
+ghq
 ggsave(
-	"leadTimeGamCary_adults.jpeg",
+	"leadTimeGamCary_adults_questing.jpeg",
 	dpi = "retina",
 	path = dir_plot,
 	width = 18,
@@ -385,7 +379,26 @@ ggsave(
 	units = "cm"
 )
 
+ghd <-
+	ggarrange(
+		g1_d,
+		g3,
+		nrow = 2,
+		heights = c(2, 1),
+		labels = c("", "E"),
+		legend = "bottom"
+	)
+ghd
+ggsave(
+	"leadTimeGamCary_adults_dormant.jpeg",
+	dpi = "retina",
+	path = dir_plot,
+	width = 18,
+	height = 18,
+	units = "cm"
+)
 
+## adult forecast limit ----
 plot_df |>
 	group_by(x, driver, mice, remove, period) |>
 	summarise(mu = mean(delta)) |>
@@ -402,7 +415,7 @@ plot_df |>
 
 # Forecast improvements ----
 
-params <- read_csv(file.path(dir_out, "allParameterQuants.csv"))
+params <- read_csv(file.path("analysis", "allParameterQuants.csv"))
 
 params_mutate <- params |>
 	parameter_names()
@@ -456,10 +469,11 @@ m <- "Mice"
 r <- "Larvae"
 p <- "Questing"
 d <- "CARY"
+ls <- "Nymphs"
 
 df_process <- crps_period |>
 	filter(
-		paramsFrom == pf,
+		#paramsFrom == pf,
 		mice == m,
 		remove == r,
 		period == p,
@@ -469,30 +483,49 @@ df_process <- crps_period |>
 start_dates_plot <- unique(df_process$start.date)
 
 df_null <- crps_period |>
-	filter(driver == "Null", period == p, start.date %in% start_dates_plot)
+	filter(
+		driver == "Null",
+		period == p,
+		start.date %in% start_dates_plot
+	)
 
 df_null |>
 	mutate(year = year(start.date)) |>
-	group_by(ticksFrom) |>
+	group_by(ticksFrom, lifeStage) |>
 	summarise(m = lm(score ~ year)$coefficients[2]) |>
 	ungroup() |>
 	mutate(m = round(m, 2)) |>
 	pivot_wider(names_from = ticksFrom, values_from = m)
 
 # average rate of CRPS change per year
-crps_period |>
+crps_period_filter <- crps_period |>
 	filter(
 		mice == m,
 		remove == r,
 		period == p,
 		driver == d
 	) |>
-	mutate(year = year(start.date)) |>
-	group_by(ticksFrom) |>
+	mutate(year = year(start.date))
+
+crps_period_filter |>
+	group_by(lifeStage, ticksFrom) |>
 	summarise(m = lm(score ~ year)$coefficients[2]) |>
 	ungroup() |>
 	mutate(m = round(m, 2)) |>
 	pivot_wider(names_from = ticksFrom, values_from = m)
+
+get_predicted <- function(tf) {
+	tmp1 <- crps_period_filter |> filter(ticksFrom == tf, lifeStage == "Nymphs")
+	fit <- lm(score ~ year, data = tmp1)
+	p1 <- predict(fit, newdata = data.frame(year = 2006))
+	p2 <- predict(fit, newdata = data.frame(year = 2020))
+	round((p1 - p2) / p1 * 100)
+}
+
+# linear improvement in skill first year vs last year
+get_predicted("Green")
+get_predicted("Henry")
+get_predicted("Tea")
 
 smooth <- "lm"
 

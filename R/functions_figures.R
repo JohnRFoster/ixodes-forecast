@@ -264,15 +264,15 @@ my_theme <- function() {
 	)
 }
 
-plot_gam <- function(df, target, d, vline) {
+plot_gam <- function(df, target, d, p, vline) {
 	g <- df |>
-		filter(y == target, driver == d) |>
+		filter(y == target, driver == d, period == p) |>
 		ggplot() +
 		aes(x = x, y = delta, color = instance) +
 		geom_line(linewidth = 1) +
 		geom_vline(xintercept = vline) +
 		geom_hline(yintercept = 0, linetype = "dashed") +
-		facet_grid(driver ~ period) +
+		facet_grid(~driver) +
 		scale_color_manual(values = instance_cols) +
 		labs(
 			color = "Data in model",
@@ -281,6 +281,38 @@ plot_gam <- function(df, target, d, vline) {
 		) +
 		theme_bw() +
 		my_theme()
+}
+
+wrap_plots <- function(dfp, dfls, p, vline, cylim, dylim) {
+	g <- list()
+	g[[1]] <- dfp |>
+		plot_gam("score", "Obs. weather", p, vline) +
+		coord_cartesian(ylim = cylim)
+	g[[2]] <- dfp |>
+		plot_gam("score", "FX weather", p, vline) +
+		coord_cartesian(ylim = cylim)
+	g[[3]] <- dfls |>
+		filter(instance != "Day-of-year") |>
+		rename(delta = value) |>
+		plot_gam("delta", "Obs. weather", p, vline) +
+		coord_cartesian(ylim = dylim) +
+		geom_hline(yintercept = 0, linetype = "dashed")
+	g[[4]] <- dfls |>
+		filter(instance != "Day-of-year") |>
+		rename(delta = value) |>
+		plot_gam("delta", "FX weather", p, vline) +
+		coord_cartesian(ylim = dylim) +
+		geom_hline(yintercept = 0, linetype = "dashed")
+
+	ggarrange(
+		plotlist = g,
+		nrow = 2,
+		ncol = 2,
+		align = "hv",
+		legend = "bottom",
+		labels = "AUTO",
+		common.legend = TRUE
+	)
 }
 
 plot_ticks_on_drag_cloths <- function(df_tick, df_skill, ls) {
