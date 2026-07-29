@@ -58,18 +58,35 @@ gam_forecast <- function(df, ls, target_date) {
   b <- gam(count ~ s(doy), family = "poisson", data = hist, method = "REML")
 
   new_dat <- tibble(doy = yday(target_date))
-  fit <- predict.gam(b, new_dat, type = "response", se.fit = TRUE)
-  fx <- as.numeric(fit$fit)
-  se_fit <- as.numeric(fit$se.fit)
+
+  link_preds <- predict(b, new_dat, type = "link", se.fit = TRUE)
+  n_sims <- 5000
+  pred_sims <- matrix(NA, nrow = nrow(new_dat), ncol = n_sims)
+
+  for (i in 1:nrow(new_dat)) {
+    # Simulate "true" means on link scale
+    sim_links <- rnorm(
+      n_sims,
+      mean = link_preds$fit[i],
+      sd = link_preds$se.fit[i]
+    )
+    # Back-transform to get lambdas
+    sim_lambdas <- exp(sim_links)
+    # Draw from Poisson
+    pred_sims[i, ] <- rpois(n_sims, lambda = sim_lambdas)
+  }
+
+  fx <- apply(pred_sims, 1, median)
+  pi_lower <- apply(pred_sims, 1, quantile, probs = 0.025)
+  pi_upper <- apply(pred_sims, 1, quantile, probs = 0.975)
 
   tibble(
     fx = fx,
-    se_fit = se_fit
+    ymin = pi_lower,
+    ymax = pi_upper
   ) |>
     mutate(
       lifeStage = ls,
-      ymin = pmax(0, fx - (1.96 * se_fit)),
-      ymax = fx + (1.96 * se_fit),
       var = fx,
       start.date = target_date[1],
       time = target_date,
@@ -77,8 +94,7 @@ gam_forecast <- function(df, ls, target_date) {
       experiment = "Null",
       site = site_x,
       paramsFrom = site_x
-    ) |>
-    select(-se_fit)
+    )
 }
 
 hindcast_seq <- df_tick_hindcast |>
