@@ -185,8 +185,14 @@ sim_y <- function(mu, v, y_obs, n = 1000) {
 	lambda <- pmax(0, rnorm(n, mu, sqrt(v)))
 	y_pred <- rpois(n, lambda)
 
+	bayes_p <- if_else(
+		y_obs == 0,
+		mean(y_pred == 0),
+		mean(y_pred >= y_obs)
+	)
+
 	list(
-		bayes_p = mean(y_pred >= y_obs),
+		bayes_p = bayes_p,
 		y_median = median(y_pred),
 		y_low = quantile(y_pred, 0.025),
 		y_high = quantile(y_pred, 0.975)
@@ -244,6 +250,7 @@ all_resids |>
 	) |>
 	arrange(lifeStage, remove, mice, driver)
 
+
 instance <- all_resids |>
 	mutate(
 		remove = if_else(remove == "Larvae", "L", "NL"),
@@ -252,27 +259,59 @@ instance <- all_resids |>
 		data_instance = if_else(grepl("Null", data_instance), "Null", data_instance)
 	)
 
+# need to put the above frequencies calculations into this function
 hex_horizon <- function(df, bs) {
-	df |>
-		mutate(horizon = as.numeric(time - start.date)) |>
+	tmp <- df |>
+		mutate(
+			bayes_p_bin = cut(
+				bayes_p,
+				breaks = seq(0, 1, by = 0.2),
+				include.lowest = TRUE
+			),
+			horizon = as.numeric(time - start.date),
+			horizon_bin = if_else(horizon < 175, "SA", "IA")
+		)
+
+	plyr::count(tmp$bayes_p_bin)
+	plyr::count(tmp$horizon_bin)
+
+	horizon_sample_size <- tmp |>
+		group_by(data_instance, horizon_bin) |>
+		reframe(n = n())
+
+	horizon_freq <- tmp |>
+		group_by(data_instance, horizon_bin, bayes_p_bin) |>
+		reframe(nh = n()) |>
+		left_join(horizon_sample_size) |>
+		mutate(p = nh / n)
+
+	horizon_freq |>
 		ggplot() +
-		aes(x = bayes_p, y = horizon) +
+		aes(x = bayes_p_bin, y = horizon_bin, fill = p) +
 		facet_wrap(~data_instance, scales = "free_y") +
-		geom_bin2d() +
-		labs(x = "Bayesian p-value", y = "Horizon", fill = "Count") +
-		scale_fill_viridis_c() +
+		geom_tile() +
+		labs(x = "Bayesian p-value", y = "Horizon", fill = "Proportion") +
+		scale_fill_gradientn(
+			colors = c("#0571b0", "white", "#fddbc7", "#ef8a62", "#b2182b"),
+			limits = c(0, 0.8),
+			breaks = c(0, 0.2, 0.4, 0.6, 0.8)
+		) +
 		theme_bw() +
 		labs_pubr(base_size = bs) +
-		theme(strip.text = element_text(size = 8))
+		theme(
+			strip.text = element_text(size = 8),
+			axis.text.x = element_text(angle = 90, hjust = 1)
+		)
 }
 
 g <- list()
 bs <- 8
 
 g[[1]] <- instance |>
-	filter(data > 0) |>
 	hex_horizon(bs) +
 	labs(title = "All forecasts")
+
+g[[1]]
 
 g[[2]] <- instance |>
 	filter(phase == "Questing") |>
@@ -280,23 +319,60 @@ g[[2]] <- instance |>
 	hex_horizon(bs) +
 	labs(title = "Questing nymph forecasts")
 
+g[[2]]
+
 hex_doy <- function(df, bs) {
-	df |>
-		mutate(doy = yday(time)) |>
+	doy_seq <- c(1, 90, 181, 273, 365)
+	doy_labels <- c("Jan-Mar", "Apr-Jun", "Jul-Sep", "Oct-Dec")
+
+	tmp <- df |>
+		mutate(
+			bayes_p_bin = cut(
+				bayes_p,
+				breaks = seq(0, 1, by = 0.2),
+				include.lowest = TRUE
+			),
+			doy = yday(time),
+			doy_bin = cut(doy, breaks = doy_seq, labels = doy_labels)
+		)
+
+	plyr::count(tmp$bayes_p_bin)
+	plyr::count(tmp$doy_bin)
+
+	doy_sample_size <- tmp |>
+		group_by(data_instance, doy_bin) |>
+		reframe(n = n())
+
+	doy_freq <- tmp |>
+		group_by(data_instance, doy_bin, bayes_p_bin) |>
+		reframe(nh = n()) |>
+		left_join(doy_sample_size) |>
+		mutate(p = nh / n)
+
+	doy_freq |>
 		ggplot() +
-		aes(x = bayes_p, y = doy) +
+		aes(x = bayes_p_bin, y = doy_bin, fill = p) +
 		facet_wrap(~data_instance, scales = "free_y") +
-		geom_bin2d() +
-		labs(x = "Bayesian p-value", y = "Day of year", fill = "Count") +
-		scale_fill_viridis_c() +
+		geom_tile() +
+		labs(x = "Bayesian p-value", y = "Month", fill = "Proportion") +
+		scale_fill_gradientn(
+			colors = c("#0571b0", "white", "#fddbc7", "#ef8a62", "#b2182b"),
+			limits = c(0, 0.8),
+			breaks = c(0, 0.2, 0.4, 0.6, 0.8)
+		) +
 		theme_bw() +
 		labs_pubr(base_size = bs) +
-		theme(strip.text = element_text(size = 8))
+		theme(
+			strip.text = element_text(size = 8),
+			axis.text.x = element_text(angle = 90, hjust = 1)
+		)
 }
 
 g[[3]] <- instance |>
 	hex_doy(bs) +
 	labs(title = "All forecasts")
+
+g[[3]]
 
 g[[4]] <- instance |>
 	filter(phase == "Questing") |>
@@ -304,10 +380,20 @@ g[[4]] <- instance |>
 	hex_doy(bs) +
 	labs(title = "Questing nymph forecasts")
 
-ggarrange(plotlist = g, nrow = 2, ncol = 2, labels = "AUTO")
+g[[4]]
+
+ggarrange(
+	plotlist = g,
+	nrow = 2,
+	ncol = 2,
+	labels = "AUTO",
+	common.legend = TRUE,
+	legend = "bottom",
+	align = "hv"
+)
 
 ggsave(
-	"plots/bayes_p_panel_2axis.jpeg",
+	"plots/bayes_p_panel_2axis_bins_gAll.jpeg",
 	width = 8,
 	height = 6,
 	units = "in",
