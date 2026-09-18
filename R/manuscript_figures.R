@@ -168,15 +168,6 @@ g1_q <- wrap_plots(
 	crps_ylim,
 	delta_ylim
 )
-g1_d <- wrap_plots(
-	plot_df,
-	pred_data_nymphs,
-	"Dormant",
-	vline,
-	crps_ylim,
-	delta_ylim
-)
-
 
 df_tick <- read_csv(file.path(dir_data, "Ticks2006_2021.csv"))
 tick_grid <- df_tick |>
@@ -208,30 +199,11 @@ ghq <-
 	)
 ghq
 ggsave(
-	"leadTimeGamCary_nymphs_questing.jpeg",
-	dpi = "retina",
+	"figure_4.tiff",
+	dpi = 600,
 	path = dir_plot,
 	width = 18,
-	height = 18,
-	units = "cm"
-)
-
-ghd <-
-	ggarrange(
-		g1_d,
-		g3,
-		nrow = 2,
-		heights = c(2, 1),
-		labels = c("", "E"),
-		legend = "bottom"
-	)
-ghd
-ggsave(
-	"leadTimeGamCary_nymphs_dormant.jpeg",
-	dpi = "retina",
-	path = dir_plot,
-	width = 18,
-	height = 18,
+	height = 24,
 	units = "cm"
 )
 
@@ -290,30 +262,11 @@ ghq <-
 	)
 ghq
 ggsave(
-	"leadTimeGamCary_larvae_questing.jpeg",
-	dpi = "retina",
+	"figure_S2.tiff",
+	dpi = 600,
 	path = dir_plot,
 	width = 18,
-	height = 18,
-	units = "cm"
-)
-
-ghd <-
-	ggarrange(
-		g1_d,
-		g3,
-		nrow = 2,
-		heights = c(2, 1),
-		labels = c("", "E"),
-		legend = "bottom"
-	)
-ghd
-ggsave(
-	"leadTimeGamCary_larvae_dormant.jpeg",
-	dpi = "retina",
-	path = dir_plot,
-	width = 18,
-	height = 18,
+	height = 24,
 	units = "cm"
 )
 
@@ -371,30 +324,11 @@ ghq <-
 	)
 ghq
 ggsave(
-	"leadTimeGamCary_adults_questing.jpeg",
-	dpi = "retina",
+	"figure_S4.tiff",
+	dpi = 600,
 	path = dir_plot,
 	width = 18,
-	height = 18,
-	units = "cm"
-)
-
-ghd <-
-	ggarrange(
-		g1_d,
-		g3,
-		nrow = 2,
-		heights = c(2, 1),
-		labels = c("", "E"),
-		legend = "bottom"
-	)
-ghd
-ggsave(
-	"leadTimeGamCary_adults_dormant.jpeg",
-	dpi = "retina",
-	path = dir_plot,
-	width = 18,
-	height = 18,
+	height = 24,
 	units = "cm"
 )
 
@@ -428,14 +362,6 @@ site_cols <- c(
 	"Tea" = "#8da0cb"
 )
 
-my_theme <- theme(
-	axis.text = element_text(size = 8),
-	axis.title = element_text(size = 8),
-	strip.text = element_text(size = 6),
-	legend.text = element_text(size = 8),
-	legend.title = element_text(size = 8)
-)
-
 g1 <- params_mutate |>
 	filter(
 		lifeStage == "Nymphs",
@@ -463,7 +389,7 @@ g1 <- params_mutate |>
 		legend.position = "right",
 		axis.text.x = element_text(angle = 90, vjust = 0.5)
 	) +
-	my_theme
+	my_theme()
 
 m <- "Mice"
 r <- "Larvae"
@@ -562,18 +488,18 @@ g2 <- crps_period |>
 		legend.position = "right",
 		axis.text.x = element_text(angle = 90, vjust = 0.5)
 	) +
-	my_theme
+	my_theme()
 
 g2
 
 ggarrange(g1, g2, nrow = 1, legend = "right", labels = "AUTO")
 
 ggsave(
-	"skillClimateRelationship.jpeg",
-	dpi = "retina",
+	"figure_2.tiff",
+	dpi = 600,
 	path = dir_plot,
 	width = 18,
-	height = 8,
+	height = 10,
 	units = "cm"
 )
 
@@ -605,8 +531,20 @@ phenology_null <- crps_period |>
 	filter(driver == "Null") |>
 	mutate(doy = yday(time), instance = "Day-of-year")
 
-g1 <- plot_phenology_scores("CARY", "Nymphs", phenology_process, phenology_null)
-g2 <- plot_phenology_scores("NMME", "Nymphs", phenology_process, phenology_null)
+g1 <- plot_phenology_scores(
+	"CARY",
+	"Nymphs",
+	phenology_process,
+	phenology_null
+) +
+	my_theme()
+g2 <- plot_phenology_scores(
+	"NMME",
+	"Nymphs",
+	phenology_process,
+	phenology_null
+) +
+	my_theme()
 
 ggarrange(
 	g1,
@@ -618,8 +556,8 @@ ggarrange(
 )
 
 ggsave(
-	"phenologyScores.jpeg",
-	dpi = "retina",
+	"figure_3.tiff",
+	dpi = 600,
 	path = dir_plot,
 	width = 18,
 	height = 8,
@@ -757,14 +695,15 @@ for (i in seq_along(start_dates_vec)) {
 		geom_point(aes(y = count, shape = "Nymphs on drag cloths")) +
 		coord_cartesian(ylim = c(0, 35)) +
 		labs(
-			title = paste0("Forecast issued on: ", start_date),
+			title = paste0("Forecast issued on: ", start_date_filter),
 			linetype = "Model type",
 			fill = "Model type",
 			x = "Date",
-			y = "Ticks/450 sq. m",
+			y = expression("Ticks/450 " ~ m^2),
 			shape = ""
 		) +
-		theme_bw()
+		theme_bw() +
+		my_theme()
 }
 
 length(g)
@@ -782,11 +721,11 @@ ggarrange(
 )
 
 ggsave(
-	"timeSeries2018.jpeg",
-	dpi = "retina",
+	"figure_5.tiff",
+	dpi = 600,
 	path = dir_plot,
 	width = 18,
-	height = 24,
+	height = 18,
 	units = "cm"
 )
 
@@ -795,8 +734,8 @@ ggsave(
 w <- 0.5
 
 transfer_cols <- c(
-	"Within-site" = "#f1a340",
-	"Across-site" = "#998ec3"
+	"Within" = "#f1a340",
+	"Across" = "#998ec3"
 )
 
 crps_instance_p <- crps_period |>
@@ -809,7 +748,7 @@ crps_instance_p <- crps_period |>
 			"Forecasted weather"
 		),
 		instance = paste(remove, mice, sep = " "),
-		transfer = if_else(ticksFrom == paramsFrom, "Within-site", "Across-site")
+		transfer = if_else(ticksFrom == paramsFrom, "Within", "Across")
 	)
 
 n1 <- crps_period |>
@@ -817,7 +756,7 @@ n1 <- crps_period |>
 	mutate(
 		instance = "Day-of-year",
 		driver = "Observed weather",
-		transfer = "Within-site",
+		transfer = "Within",
 		frame = if_else(year(time) == year(start_date), "Subannual", "Interannual")
 	)
 n2 <- crps_period |>
@@ -825,7 +764,7 @@ n2 <- crps_period |>
 	mutate(
 		instance = "Day-of-year",
 		driver = "Forecasted weather",
-		transfer = "Within-site",
+		transfer = "Within",
 		frame = if_else(year(time) == year(start_date), "Subannual", "Interannual")
 	)
 
@@ -855,30 +794,172 @@ transfer_cis <- bind_rows(crps_instance_p, n3) |>
 
 transfer_plot(transfer_cis, "Nymphs")
 ggsave(
-	"transferability_nymphs.jpeg",
-	dpi = "retina",
+	"figure_6.tiff",
+	dpi = 600,
 	path = dir_plot,
-	width = 18,
-	height = 10,
+	width = 8.5,
+	height = 8.5,
 	units = "cm"
 )
 
 transfer_plot(transfer_cis, "Larvae")
 ggsave(
-	"transferability_larvae.jpeg",
-	dpi = "retina",
+	"figure_S3.tiff",
+	dpi = 600,
 	path = dir_plot,
-	width = 18,
-	height = 10,
+	width = 8.5,
+	height = 8.5,
 	units = "cm"
 )
 
 transfer_plot(transfer_cis, "Adults")
 ggsave(
-	"transferability_adults.jpeg",
-	dpi = "retina",
+	"figure_S5.tiff",
+	dpi = 600,
 	path = dir_plot,
-	width = 18,
-	height = 10,
+	width = 8.5,
+	height = 8.5,
+	units = "cm"
+)
+
+fx.scores <- read_csv(file.path(dir_data, "allForecastScores.csv"))
+
+subset <- fx.scores %>%
+	filter(
+		metric == "crps",
+		horizon > 0,
+		score < 50,
+		month(time) < 9,
+		month(time) > 3,
+		model != "null"
+	) %>%
+	group_by(lifeStage) %>%
+	summarise(best = min(score), worst = max(score)) %>%
+	pivot_longer(
+		cols = c("best", "worst"),
+		names_to = "type",
+		values_to = "score"
+	) %>%
+	mutate(metric = "crps")
+
+da.vis <- left_join(subset, fx.scores, by = c("lifeStage", "score", "metric"))
+
+
+fx.samps <- read_csv("/Users/John.Foster/Downloads/allForecastSamples.csv")
+fx.h <- fx.samps %>%
+	mutate(horizon = as.numeric(time - start.date))
+
+
+df <- tibble()
+for (i in 5:6) {
+	obs <- slice(da.vis, i)
+
+	fx <- fx.h %>%
+		filter(
+			lifeStage == obs$lifeStage,
+			horizon == obs$horizon,
+			ticksFrom == obs$ticksFrom,
+			paramsFrom == obs$ticksFrom,
+			time == obs$time,
+			start.date == obs$start.date,
+			experiment == obs$experiment,
+			model == obs$model
+		) %>%
+		mutate(distribution = "Forecast")
+
+	ic <- fx.h %>%
+		filter(
+			time == obs$time,
+			ticksFrom == obs$ticksFrom,
+			lifeStage == obs$lifeStage,
+			paramsFrom == obs$ticksFrom,
+			model == obs$model,
+			experiment == obs$experiment,
+			horizon == 0
+		) %>%
+		mutate(distribution = "Analysis")
+
+	nrow(fx) == nrow(ic)
+
+	message("Forecast")
+	print(round(quantile(fx$fx, c(0.5, 0.05, 0.95)), 2))
+	print(round(var(fx$fx), 2))
+
+	message("Analysis")
+	print(round(quantile(ic$fx, c(0.5, 0.05, 0.95)), 2))
+	print(round(var(ic$fx), 2))
+
+	counts <- fx$data[1]
+
+	message("Data")
+	dfx <- rpois(1e6, counts)
+	print(round(quantile(dfx, c(0.5, 0.05, 0.95)), 2))
+
+	data.dist <- tibble(
+		fx = rpois(1000, counts),
+		distribution = "Data"
+	)
+
+	ggdf <- bind_rows(ic, fx) |>
+		bind_rows(data.dist) |>
+		mutate(
+			distribution = factor(
+				distribution,
+				levels = c("Forecast", "Data", "Analysis")
+			),
+			example = obs$type
+		)
+
+	df <- bind_rows(df, ggdf)
+}
+
+dist.cols <- c(
+	"Forecast" = "#dd5129",
+	"Data" = "#0f7ba2",
+	"Analysis" = "#43b284"
+)
+
+g1 <- df %>%
+	filter(example == "best") |>
+	ggplot() +
+	aes(x = fx) +
+	geom_density(aes(fill = distribution), alpha = 0.7, adjust = 2) +
+	scale_fill_manual(values = dist.cols) +
+	labs(
+		x = expression("Ticks/450 " ~ m^2),
+		y = "Density",
+		fill = element_blank()
+	) +
+	theme_pubr() +
+	theme(legend.position = "bottom")
+
+g2 <- df %>%
+	filter(example == "worst") |>
+	ggplot() +
+	aes(x = fx) +
+	geom_density(aes(fill = distribution), alpha = 0.7, adjust = 2) +
+	scale_fill_manual(values = dist.cols) +
+	labs(
+		x = expression("Ticks/450 " ~ m^2),
+		y = "Density",
+		fill = element_blank()
+	) +
+	theme_pubr() +
+	theme(legend.position = "bottom")
+
+gg3 <- ggarrange(
+	g1 + labs(title = "Good forecast") + my_theme(),
+	g2 + labs(title = "Bad forecast") + my_theme(),
+	common.legend = TRUE,
+	legend = "bottom",
+	ncol = 2
+)
+gg3
+ggsave(
+	"figure_S8.tiff",
+	dpi = 600,
+	path = dir_plot,
+	width = 8.5,
+	height = 8.5,
 	units = "cm"
 )

@@ -283,26 +283,41 @@ plot_gam <- function(df, target, d, p, vline) {
 		my_theme()
 }
 
+my_theme <- function() {
+	theme(
+		title = element_text(size = 10),
+		axis.title = element_text(size = 9),
+		axis.text = element_text(size = 7),
+		legend.text = element_text(size = 8),
+		legend.title = element_text(size = 8),
+		strip.text = element_text(size = 8)
+	)
+}
+
 wrap_plots <- function(dfp, dfls, p, vline, cylim, dylim) {
 	g <- list()
 	g[[1]] <- dfp |>
 		plot_gam("score", "Obs. weather", p, vline) +
-		coord_cartesian(ylim = cylim)
+		coord_cartesian(ylim = cylim) +
+		my_theme()
 	g[[2]] <- dfp |>
 		plot_gam("score", "FX weather", p, vline) +
-		coord_cartesian(ylim = cylim)
+		coord_cartesian(ylim = cylim) +
+		my_theme()
 	g[[3]] <- dfls |>
 		filter(instance != "Day-of-year") |>
 		rename(delta = value) |>
 		plot_gam("delta", "Obs. weather", p, vline) +
 		coord_cartesian(ylim = dylim) +
-		geom_hline(yintercept = 0, linetype = "dashed")
+		geom_hline(yintercept = 0, linetype = "dashed") +
+		my_theme()
 	g[[4]] <- dfls |>
 		filter(instance != "Day-of-year") |>
 		rename(delta = value) |>
 		plot_gam("delta", "FX weather", p, vline) +
 		coord_cartesian(ylim = dylim) +
-		geom_hline(yintercept = 0, linetype = "dashed")
+		geom_hline(yintercept = 0, linetype = "dashed") +
+		my_theme()
 
 	ggarrange(
 		plotlist = g,
@@ -343,7 +358,7 @@ plot_ticks_on_drag_cloths <- function(df_tick, df_skill, ls) {
 		geom_vline(xintercept = 175) +
 		labs(
 			x = "Lead time (days)",
-			y = "Ticks / 450 sq. m",
+			y = expression("Ticks/450 " ~ (m^2)),
 			color = paste0(ls, " on\ndrag cloths")
 		) +
 		scale_color_brewer(type = "qual", palette = 2) +
@@ -547,6 +562,16 @@ plot_phenology_scores <- function(d, ls, df_process, df_null) {
 transfer_plot <- function(df, ls) {
 	df |>
 		filter(lifeStage == ls) |>
+		mutate(
+			transfer = if_else(transfer == "Within-site", "Within", "Across"),
+			instance = case_when(
+				instance == "Day-of-year" ~ "DOY",
+				instance == "Larvae Mice" ~ "L-M",
+				instance == "Larvae No mice" ~ "L-NM",
+				instance == "No larvae Mice" ~ "NL-M",
+				instance == "No larvae No mice" ~ "NL-NM"
+			)
+		) |>
 		ggplot() +
 		aes(xmin = lwr.ci, x = med, xmax = upr.ci, y = instance, color = transfer) +
 		geom_point(position = position_dodge(width = w)) +
@@ -554,5 +579,7 @@ transfer_plot <- function(df, ls) {
 		facet_grid(frame ~ driver) +
 		scale_color_manual(values = transfer_cols) +
 		labs(x = "CRPS", y = "Data in model", color = "Parameter-site match") +
-		theme_bw()
+		theme_bw() +
+		my_theme() +
+		theme(legend.position = "bottom")
 }

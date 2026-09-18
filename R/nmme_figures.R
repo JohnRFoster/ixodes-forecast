@@ -3,6 +3,8 @@ library(lubridate)
 library(MetBrewer)
 library(ggpubr)
 
+source("R/functions_figures.R")
+
 dir.top <- ""
 dir.data <- "Data"
 # dir.out <- "/projectnb/dietzelab/fosterj/FinalOut/Chapter2"
@@ -17,12 +19,12 @@ save_gg <- function(dest, gg, path) {
 	ggsave(
 		filename = dest,
 		plot = gg,
-		device = "jpeg",
+		device = "pdf",
 		path = path,
 		width = 7,
 		height = 5,
 		units = "in",
-		dpi = "retina",
+		dpi = 600,
 		bg = "white"
 	)
 	# dev.off()
@@ -94,7 +96,7 @@ hindcast_seq <- df.tick |>
 	sort() |>
 	unique()
 
-pb = txtProgressBar(min = 1, max = length(hindcast_seq), style = 1)
+pb <- txtProgressBar(min = 1, max = length(hindcast_seq), style = 1)
 all_df <- tibble()
 for (i in seq_along(hindcast_seq)) {
 	start.date <- hindcast_seq[i]
@@ -171,13 +173,7 @@ for (i in seq_along(hindcast_seq)) {
 
 	# scale to historical period
 	nmme.scaled <- nmme.correct %>%
-		select(time, ensemble, tmax, rhmax, rhmin, precipitation) %>%
-		mutate(
-			# tmax = (tmax - hist.means$means['MAX_TEMP']) / hist.means$sds['MAX_TEMP'],
-			# rhmax = (rhmax - hist.means$means['MAX_RH']) / hist.means$sds['MAX_RH'],
-			# rhmin = (rhmin - hist.means$means['MIN_RH']) / hist.means$sds['MIN_RH'],
-			# precipitation = (precipitation - hist.means$means['TOT_PREC']) / hist.means$sds['TOT_PREC']
-		)
+		select(time, ensemble, tmax, rhmax, rhmin, precipitation)
 
 	df.nmme2 <- nmme.scaled |>
 		rename(
@@ -266,20 +262,36 @@ for (i in seq_along(hindcast_seq)) {
 				x = element_blank()
 			) +
 			theme_bw() +
-			theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+			theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+			my_theme()
 	}
 
-	# g <- list()
-	# g[[1]] <- plot_var("Max Temperature") + labs(y = "Degrees C.")
-	# g[[2]] <- plot_var("Max relative humidity") + labs(y = "Percent")
-	# g[[3]] <- plot_var("Min relative humidity") + labs(y = "Percent")
-	# g[[4]] <- plot_var("Daily precipitation") + labs(y = "Millimeters")
-	# g[[5]] <- plot_var("Cumulative precipitation") + labs(y = "Millimeters")
-	#
-	# ggarrange(plotlist = g, nrow = 2, ncol = 3, common.legend = TRUE, legend = "bottom", labels = "AUTO")
-	#
-	# ggsave(paste0(start.date, "nmme_vs_observed.jpeg"), dpi = "retina",
-	#        path = "Plots/hindcast/manuscript/nmmeVsObs", width = 18, height = 12, units = "cm")
+	if (start.date == "2019-05-20") {
+		g <- list()
+		g[[1]] <- plot_var("Max Temperature") + labs(y = "Degrees C.")
+		g[[2]] <- plot_var("Max relative humidity") + labs(y = "Percent")
+		g[[3]] <- plot_var("Min relative humidity") + labs(y = "Percent")
+		g[[4]] <- plot_var("Daily precipitation") + labs(y = "Millimeters")
+		g[[5]] <- plot_var("Cumulative precipitation") + labs(y = "Millimeters")
+
+		ggarrange(
+			plotlist = g,
+			nrow = 2,
+			ncol = 3,
+			common.legend = TRUE,
+			legend = "bottom",
+			labels = "AUTO"
+		)
+
+		ggsave(
+			"figure_S6.tiff",
+			dpi = 600,
+			path = dir.plot,
+			width = 18,
+			height = 12,
+			units = "cm"
+		)
+	}
 
 	setTxtProgressBar(pb, i)
 
@@ -341,88 +353,10 @@ g[[8]] <- my_plot("MAE", "Max Temperature", "Celsius")
 ggarrange(plotlist = g, nrow = 2, ncol = 4, align = "hv", labels = "AUTO")
 
 ggsave(
-	paste0("nmmeAllMetrics.jpeg"),
-	dpi = "retina",
+	paste0("figure_S7.tiff"),
+	dpi = 600,
 	path = "plots",
 	width = 18,
 	height = 12,
 	units = "cm"
 )
-
-met_fx_horizon |>
-	pivot_longer(cols = c(Bias, MAE), names_to = "metric") |>
-	filter(variable != "Cumulative precipitation") |>
-	ggplot() +
-	aes(x = horizon, y = value) +
-	geom_point(size = 0.1) +
-	geom_smooth(linewidth = 0.5) +
-	facet_grid(metric ~ variable, scales = "free_y") +
-	labs(x = "Forecast lead time (days)", y = "Value") +
-	theme_bw()
-
-df <- muf %>%
-	pivot_longer(cols = -c(site, paramsFrom), names_to = "parameter") %>%
-	mutate(
-		variable = if_else(grepl("1]", parameter), "Max Temperature", "x"),
-		variable = if_else(
-			grepl("2]", parameter),
-			"Max relative humidity",
-			variable
-		),
-		variable = if_else(
-			grepl("3]", parameter),
-			"Min relative humidity",
-			variable
-		),
-		variable = if_else(grepl("4]", parameter), "Precipitation", variable),
-		horizon = as.numeric(str_extract(parameter, "(?<=muf\\[)\\d*")) - 1,
-		value = if_else(
-			variable == "Max Temperature",
-			value * hist.means$sds['MAX_TEMP'] + hist.means$means['MAX_TEMP'],
-			value
-		),
-		value = if_else(
-			variable == "Max relative humidity",
-			value * hist.means$sds['MAX_RH'] + hist.means$means['MAX_RH'],
-			value
-		),
-		value = if_else(
-			variable == "Min relative humidity",
-			value * hist.means$sds['MIN_RH'] + hist.means$means['MIN_RH'],
-			value
-		),
-		value = if_else(
-			variable == "Precipitation",
-			value * hist.means$sds['TOT_PREC'] + hist.means$means['TOT_PREC'],
-			value
-		)
-	) %>%
-	group_by(variable, horizon) %>%
-	summarise(
-		low = quantile(value, 0.05),
-		med = quantile(value, 0.5),
-		high = quantile(value, 0.95)
-	) %>%
-	mutate(
-		source = "Estimated",
-		start.date = ymd(start.date),
-		Date = start.date + horizon
-	)
-
-
-df.p <- left_join(df, hdf, by = c("Date", "variable"))
-
-gg <- df.p %>%
-	# filter(variable == "rhmax") %>%
-	ggplot() +
-	aes(x = Date) +
-	geom_line(aes(y = observed, linetype = "Observed"), size = 0.25) +
-	geom_ribbon(aes(ymin = low, ymax = high, fill = "Estimated"), alpha = 0.8) +
-	scale_fill_manual(values = "#fc8d59") +
-	labs(y = "Value", linetype = "", fill = "") +
-	facet_wrap(~variable) +
-	theme_pubr() +
-	theme(
-		legend.position = "bottom",
-		axis.text.x = element_text(angle = 60, vjust = 0.5)
-	)

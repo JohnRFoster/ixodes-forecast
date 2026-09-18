@@ -5,6 +5,16 @@ library(ggplot2)
 library(ggpubr)
 library(lubridate)
 
+my_theme <- function() {
+	theme(
+		axis.title = element_text(size = 8),
+		axis.text = element_text(size = 8),
+		legend.text = element_text(size = 10),
+		legend.title = element_text(size = 10),
+		strip.text = element_text(size = 6)
+	)
+}
+
 dir_data <- "data"
 dir_out <- "out"
 dir_plot <- "plots"
@@ -309,17 +319,15 @@ bs <- 8
 
 g[[1]] <- instance |>
 	hex_horizon(bs) +
-	labs(title = "All forecasts")
-
-g[[1]]
+	labs(title = "All forecasts") +
+	my_theme()
 
 g[[2]] <- instance |>
 	filter(phase == "Questing") |>
 	filter(lifeStage == "Nymphs") |>
 	hex_horizon(bs) +
-	labs(title = "Questing nymph forecasts")
-
-g[[2]]
+	labs(title = "Questing nymph forecasts") +
+	my_theme()
 
 hex_doy <- function(df, bs) {
 	doy_seq <- c(1, 90, 181, 273, 365)
@@ -370,17 +378,15 @@ hex_doy <- function(df, bs) {
 
 g[[3]] <- instance |>
 	hex_doy(bs) +
-	labs(title = "All forecasts")
-
-g[[3]]
+	labs(title = "All forecasts") +
+	my_theme()
 
 g[[4]] <- instance |>
 	filter(phase == "Questing") |>
 	filter(lifeStage == "Nymphs") |>
 	hex_doy(bs) +
-	labs(title = "Questing nymph forecasts")
-
-g[[4]]
+	labs(title = "Questing nymph forecasts") +
+	my_theme()
 
 ggarrange(
 	plotlist = g,
@@ -393,9 +399,10 @@ ggarrange(
 )
 
 ggsave(
-	"plots/bayes_p_panel_2axis_bins_gAll.jpeg",
-	width = 8,
-	height = 6,
-	units = "in",
-	dpi = 300
+	"figure_S1.tiff",
+	dpi = 600,
+	path = dir_plot,
+	width = 18,
+	height = 18,
+	units = "cm"
 )
